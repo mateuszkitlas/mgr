@@ -10,7 +10,7 @@ import os
 from http.client import RemoteDisconnected
 
 logger = logging.Logger(__name__)
-conda_dir = "/home/mkitlas/miniconda3"
+conda_dir = os.environ["CONDA_PREFIX"]
 
 
 class AppKilled(Exception):
@@ -21,15 +21,23 @@ class AppError(Exception):
     pass
 
 
-def _fetch(port: int, data: Any) -> Tuple[bool, Any]:
+def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]:
+    print("_fetch started")
     try:
         req = request.Request(
             f"http://localhost:{port}", method="POST", data=json.dumps(data).encode(),
         )
         res = request.urlopen(req)
         return (False, json.loads(res.read()))
+    except ConnectionResetError as e:
+        if remaining_retries > 0:
+            return _fetch(port, data, remaining_retries - 1)
+        else:
+            return (True, e)
     except Exception as e:
         return (True, e)
+    finally:
+        print("_fetch done")
 
 
 T = TypeVar("T")
@@ -57,9 +65,8 @@ class CondaApp(Generic[T, R]):
         self.port = port
         self.subdir = subdir
         self.env = env
-        self.executor = concurrent.futures.ProcessPoolExecutor()
-        self.loop = get_event_loop()
-        self.p = None
+        self.p: Optional[subprocess.Popen[Any]] = None
+        self.executor: Optional[concurrent.futures.ProcessPoolExecutor] = None
 
     def __str__(self):
         return f'CondaApp(port={self.port}, subdir="{self.subdir}", env="{self.env}", running={self.running()})'
@@ -69,7 +76,7 @@ class CondaApp(Generic[T, R]):
 
     async def fetch(self, data: Optional[T]) -> R:
         if self.running():
-            is_internal_error, v = await self.loop.run_in_executor(
+            is_internal_error, v = await get_event_loop().run_in_executor(
                 self.executor, _fetch, self.port, data
             )
             if is_internal_error:
@@ -85,6 +92,9 @@ class CondaApp(Generic[T, R]):
 
     async def start(self):
         logger.info(self)
+        assert not self.executor
+        assert not self.p
+        self.executor = concurrent.futures.ProcessPoolExecutor()
         self.p = subprocess.Popen(
             [
                 os.path.join(conda_dir, "envs", self.env, "bin/python"),
@@ -110,9 +120,13 @@ class CondaApp(Generic[T, R]):
         return self.fetch
 
     def stop(self):
+        assert self.executor
         self.executor.shutdown()
+        self.executor = None
         if self.running():
+            assert self.p
             self.p.kill()
+            self.p = None
 
     async def __aexit__(self, _t: Any, _e: Any, _tb: Any):
         self.stop()

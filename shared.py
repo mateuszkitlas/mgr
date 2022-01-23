@@ -1,13 +1,16 @@
-from http.server import SimpleHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+#from http.server import SimpleHTTPRequestHandler, HTTPServer
 from typing import Callable, Any, Tuple, TypeVar
 import json
 import os
 import sys
 import traceback
 import datetime
+import threading
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # disable tensorflow warnings
-
 
 project_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -23,16 +26,17 @@ class Timer:
     def __init__(self):
         self.start = datetime.datetime.now()
     def done(self):
-        self.stop = (datetime.datetime.now() - self.start).total_seconds()
-        return self.stop
+        self.delta = (datetime.datetime.now() - self.start).total_seconds()
+        return self.delta
 
 
 def _serve(port: int, callback: Callable[[Any], Any]):
-    class S(SimpleHTTPRequestHandler):
+    class S(BaseHTTPRequestHandler): #(SimpleHTTPRequestHandler):
         def log_message(self, format, *args):
             pass
 
         def do_POST(self):
+            print(threading.current_thread().name)
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length).decode("utf-8")
             try:
@@ -54,12 +58,11 @@ def _serve(port: int, callback: Callable[[Any], Any]):
             self.end_headers()
             self.wfile.write(json.dumps(result).encode("utf-8"))
 
-    httpd = HTTPServer(("localhost", port), S)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    httpd.server_close()
+    class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+        """Handle requests in a separate thread."""
+
+    httpd = ThreadedHTTPServer(("localhost", port), S)
+    httpd.serve_forever()
 
 
 def serve(callback: Callable[[Any], Any]):

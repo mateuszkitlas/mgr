@@ -7,6 +7,10 @@ U = TypeVar("U")
 R = TypeVar("R")
 
 class Score(Generic[T]):
+    sa: T
+    sc: T
+    ra: T
+    syba: T
     def __init__(self, sa: T, sc: T, ra: T, syba: T) -> None: ...
     def map_with(self, _: Type[R], score: Score[U], fn: Callable[[T, U], R]) -> Score[R]: ...
     def map(self, fn: Callable[[T], R]) -> Score[R]: ...

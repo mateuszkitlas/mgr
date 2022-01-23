@@ -7,17 +7,16 @@ conda env create -f https://raw.githubusercontent.com/MolecularAI/aizynthfinder/
 # scorers
 conda env create -f conda_scorers.yml
 
-# py3.10 for main
+# py3.10 for main app
 conda env create -f conda_py3.10.yml
-
 ```
 
 # Computation time (in seconds)
 ## Smiles
 ```json
-{'sa': 0.012774142857142854, 'sc': 1.4884573877551022, 'ra': 13.263153061224488, 'syba': 0.0007510612244897959}
+{sa: 0.012774, sc: 1.48846, ra: 13.26315, syba: 0.00075}
 ```
 ## Loading scorers
 ```json
-{'ra': 0.000519, 'sa': 0.000346, 'sc': 0.211584, 'syba': 133.664985}
+{ra: 0.00052, sa: 0.00035, sc: 0.21158, syba: 133.66499}
 ```
