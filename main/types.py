@@ -1,15 +1,16 @@
-from typing import TypedDict
+from typing import Tuple, TypeVar, TypedDict
 
+T = TypeVar("T")
+Timed = Tuple[float, T]
 
-class Scores(TypedDict):
-    sa: float
-    sc: float
-    ra: float
-    syba: float
+class RawScore(TypedDict):
+    sa: Timed[float]
+    sc: Timed[float]
+    ra: Timed[float]
+    syba: Timed[float]
 
-
-class Tree(TypedDict):
+class AiTree(TypedDict):
     is_solved: bool
     score: float
     expandable_smileses: list[str]
-    children: list["Tree"]
+    children: list["AiTree"]

@@ -1,28 +1,25 @@
-from .types import Scores, Tree
-from main.conda_app import CondaApp
-from .utils import Saver, data
+from .types import RawScore, AiTree, Timed
+from .score import Score
+from .conda_app import CondaApp
+from .data import Saver, data
 from asyncio import run, gather
 import logging
 
 logger = logging.Logger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
+
 async def main():
-    async with CondaApp[str, Tree](4000, "ai", "aizynth-env") as ai, CondaApp[
-        str, Scores
-    ](4001, "scorers", "scorers") as scorers:
-        mols = data(True)
-        # saver = Saver(f"{current_dir()}/out.json")
-        for i, mol in enumerate(mols):
+    mols = data(True)
+    app_ai = CondaApp[str, Timed[AiTree]](4000, "ai", "aizynth-env")
+    app_scorers = CondaApp[str, RawScore](4001, "scorers", "scorers")
+    async with app_ai as ai, app_scorers as scorers:
+        for i, test_mol in enumerate(mols):
             print(f"{i}/{len(mols)}")
-            tree, score = await gather(ai(mol.smiles), scorers(mol.smiles))
-            # print(tree)
-            print(score)
-            # saver.append(tree.json())
+            tree, raw_score = await gather(ai(test_mol.smiles), scorers(test_mol.smiles))
+            timed_score = Score.from_raw(raw_score)
+            print(timed_score)
 
 
 if __name__ == "__main__":
-    try:
-        run(main())
-    except KeyboardInterrupt:
-        pass
+    run(main())

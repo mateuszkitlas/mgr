@@ -8,6 +8,6 @@ conda env create -f https://raw.githubusercontent.com/MolecularAI/aizynthfinder/
 conda env create -f conda_scorers.yml
 
 # py3.10 for main
-conda create --name py3.10 python=3.10
+conda env create -f conda_py3.10.yml
 
 ```

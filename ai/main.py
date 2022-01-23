@@ -2,6 +2,14 @@ from typing import Any, Optional
 from shared import serve, project_dir
 import os
 
+def serialize(tree):
+    return {
+        "children": [serialize(child) if child else None for child in tree._children],
+        "is_solved": tree.is_solved,
+        "expandable_smileses": [s.smiles for s in tree._state.expandable_mols],
+        "score": tree._state.score,
+    }
+
 
 class AiZynth:
     def __init__(self):
@@ -34,13 +42,13 @@ class AiZynth:
         self.finder.tree_search()
         self.finder.build_routes()
         self.finder.routes.compute_scores(*self.finder.scorers.objects())
-        return self.finder.tree.serialize2()
+        return serialize(self.finder.tree)
 
 
 if __name__ == "__main__":
     ai_zynth = AiZynth()
 
-    def handler(data: Optional[str]):
-        return data and ai_zynth.tree(data)
+    def handler(smiles: Optional[str]):
+        return smiles and Timer.calc(lambda: ai_zynth.tree(smiles))
 
     serve(handler)

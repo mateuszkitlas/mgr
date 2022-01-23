@@ -1,14 +1,30 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
-from typing import Callable, Any
+from typing import Callable, Any, Tuple, TypeVar
 import json
 import os
 import sys
 import traceback
+import datetime
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # disable tensorflow warnings
 
 
-project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+project_dir = os.path.dirname(os.path.realpath(__file__))
+
+T = TypeVar("T")
+
+class Timer:
+    @staticmethod
+    def calc(fn: Callable[[], T]) -> Tuple[float, T]:
+        timer = Timer()
+        result = fn()
+        return timer.done(), result
+      
+    def __init__(self):
+        self.start = datetime.datetime.now()
+    def done(self):
+        self.stop = (datetime.datetime.now() - self.start).total_seconds()
+        return self.stop
 
 
 def _serve(port: int, callback: Callable[[Any], Any]):

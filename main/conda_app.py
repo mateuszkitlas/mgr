@@ -94,7 +94,7 @@ class CondaApp(Generic[T, R]):
             ]
         )
         while self.running():
-            await sleep(5)
+            await sleep(1)
             try:
                 await self.fetch(None)
                 break

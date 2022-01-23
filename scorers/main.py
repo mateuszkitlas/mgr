@@ -1,5 +1,5 @@
 from typing import Callable
-from shared import serve, project_dir
+from shared import serve, project_dir, Timer
 import sys
 import os
 from .scscore import get_sc_scorer
@@ -51,19 +51,20 @@ def get_sa_scorer() -> Callable[[str], float]:
 
 
 if __name__ == "__main__":
-    ra_scorer = get_ra_scorer("DNN", "chembl")
-    sa_scorer = get_sa_scorer()
-    sc_scorer = get_sc_scorer()
+    ra_time, ra_scorer = Timer.calc(lambda: get_ra_scorer("DNN", "chembl"))
+    sa_time, sa_scorer = Timer.calc(get_sa_scorer)
+    sc_time, sc_scorer = Timer.calc(get_sc_scorer)
     print("Loading syba scorer. This may take some time.")
-    syba_scorer = get_syba_scorer()
-    print("Syba loaded.")
+    syba_time, syba_scorer = Timer.calc(get_syba_scorer)
+    times = {"ra": ra_time, "sa": sa_time, "sc": sc_time, "syba": syba_time}
+    print(f"Syba loaded. Loading times: {times}")
 
     def scorer(smiles: str):
         return smiles and {
-            "ra": ra_scorer(smiles),
-            "sa": sa_scorer(smiles),
-            "sc": sc_scorer(smiles),
-            "syba": syba_scorer(smiles),
+            "ra": Timer.calc(lambda: ra_scorer(smiles)),
+            "sa": Timer.calc(lambda: sa_scorer(smiles)),
+            "sc": Timer.calc(lambda: sc_scorer(smiles)),
+            "syba": Timer.calc(lambda: syba_scorer(smiles)),
         }
 
     serve(scorer)
