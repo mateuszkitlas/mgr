@@ -9,6 +9,7 @@ class AiZynth:
 
         def file(filename: str):
             return os.path.join(project_dir, "data", filename)
+
         configdict = {
             "policy": {
                 "files": {
@@ -18,17 +19,13 @@ class AiZynth:
                     ],
                 },
             },
-            "stock": {
-                "files": {
-                    "zinc": file("zinc_stock_17_04_20.hdf5")
-                }
-            },
+            "stock": {"files": {"zinc": file("zinc_stock_17_04_20.hdf5")}},
         }
         self.finder = AiZynthFinder(configdict=configdict)
         self.finder.stock.select("zinc")
         self.finder.expansion_policy.select("full_uspto")
         # self.finder.filter_policy.select("full_uspto")
-        #self.expander = AiZynthExpander(self.config_path)
+        # self.expander = AiZynthExpander(self.config_path)
         # self.expander.expansion_policy.select("full_uspto")
         # self.expander.filter_policy.select("uspto")
 
@@ -45,4 +42,5 @@ if __name__ == "__main__":
 
     def handler(data: Optional[str]):
         return data and ai_zynth.tree(data)
+
     serve(handler)

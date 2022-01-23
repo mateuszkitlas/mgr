@@ -1,5 +1,4 @@
-
-from typing import TypedDict
+from .types import RaSaScScore, Tree
 from main.conda_app import CondaApp
 from .utils import Saver, data
 from asyncio import run, gather
@@ -13,24 +12,21 @@ apps = [
 ]
 
 
-class X(TypedDict):
-    sa: float
-    sc: float
-    ra: float
-
-
 async def main():
-    async with CondaApp.many(4000, apps) as [ai, ra]:
+    async with CondaApp[str, Tree](4000, "ai", "aizynth-env") as ai, CondaApp[
+        str, RaSaScScore
+    ](4001, "ra-sa", "ra-sa") as ra_sa_sc:
         mols = data(True)
-        #saver = Saver(f"{current_dir()}/out.json")
+        # saver = Saver(f"{current_dir()}/out.json")
         for i, mol in enumerate(mols):
             print(f"{i}/{len(mols)}")
-            tree, score = await gather(ai(mol.smiles), ra(mol.smiles))
+            tree, score = await gather(ai(mol.smiles), ra_sa_sc(mol.smiles))
             # print(tree)
             print(score)
             # saver.append(tree.json())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     try:
         run(main())
     except KeyboardInterrupt:

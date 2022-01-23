@@ -9,4 +9,4 @@ test:
 		-m main.test
 
 format:
-	autopep8 --in-place --recursive .
+	~/miniconda3/envs/py3.10/bin/black */*.py

@@ -27,7 +27,9 @@ class TestMol(NamedTuple):
 
 @contextmanager
 def read_csv(filename: str, newline: Optional[str], delimiter: Optional[str]):
-    with open(os.path.join(project_dir, "main", filename), encoding='utf-8', newline=newline) as csvfile:
+    with open(
+        os.path.join(project_dir, "main", filename), encoding="utf-8", newline=newline
+    ) as csvfile:
         csvreader = csv.reader(csvfile, delimiter=delimiter)
         next(csvreader, None)  # header
         yield csvreader
@@ -41,12 +43,15 @@ def data(small: bool):
 
 
 def test_data():
-    with read_csv(f"test.csv", newline='\r\n', delimiter="\t") as reader:
-        return [TestMol(row[0], float(row[1]), float(row[2]), float(row[3]), float(row[4])) for row in reader]
+    with read_csv(f"test.csv", newline="\r\n", delimiter="\t") as reader:
+        return [
+            TestMol(row[0], float(row[1]), float(row[2]), float(row[3]), float(row[4]))
+            for row in reader
+        ]
 
 
 def save(name: str, data: Any):
-    with open(name, 'w', encoding='utf-8') as f:
+    with open(name, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 

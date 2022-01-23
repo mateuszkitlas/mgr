@@ -12,9 +12,11 @@ def get_ra_scorer(
     dnn = model == "DNN"
     if dnn:
         from RAscore import RAscore_NN
+
         f = RAscore_NN.RAScorerNN
     else:
         from RAscore import RAscore_XGB
+
         f = RAscore_XGB.RAScorerXGB
     x = "fcfp" if dnn else "ecfp"
     y = "h5" if dnn else "pkl"
@@ -22,18 +24,21 @@ def get_ra_scorer(
 
     def scorer(smiles: str) -> float:
         return f(pth).predict(smiles).item()
+
     return scorer
 
 
 def get_sa_scorer() -> Callable[[str], float]:
     from rdkit import Chem
     from rdkit.Chem import RDConfig
-    sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
+
+    sys.path.append(os.path.join(RDConfig.RDContribDir, "SA_Score"))
     import sascorer
 
     def scorer(smiles: str):
         mol = Chem.MolFromSmiles(smiles)
         return sascorer.calculateScore(mol)
+
     return scorer
 
 
@@ -48,4 +53,5 @@ if __name__ == "__main__":
             "sa": sa_scorer(smiles),
             "sc": sc_scorer(smiles),
         }
+
     serve(scorer)
