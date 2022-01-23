@@ -1,0 +1,10 @@
+name: ra-sa
+channels:
+  - rdkit/label/nightly
+  - defaults
+dependencies:
+  - python=3.7
+  - rdkit
+  - pip
+  - pip:
+    - git+https://github.com/reymond-group/RAscore.git

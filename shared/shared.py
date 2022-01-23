@@ -18,17 +18,16 @@ def _serve(port: int, callback: Callable[[Any], Any]):
                 in_data = json.loads(post_data)
                 print(f"CondaApp[port={port}, in] {in_data}")
                 out_data = callback(in_data)
-                print(f"CondaApp[port={port}, out] {out_data}")
+                print(f"CondaApp[port={port}, out]")
                 result = (False, out_data)
             except Exception as e:
                 print(f"CondaApp[port={port}, err] {e}")
                 result = (True, "".join(traceback.format_exception(
                     type(e), value=e, tb=e.__traceback__)))
-            else:
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(result).encode('utf-8'))
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode('utf-8'))
     httpd = HTTPServer(("localhost", port), S)
     try:
         httpd.serve_forever()

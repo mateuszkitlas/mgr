@@ -12,6 +12,7 @@ import os
 from http.client import RemoteDisconnected
 
 logger = logging.Logger(__name__)
+logging.getLogger("requests").setLevel(logging.WARNING)
 conda_dir = "/home/mkitlas/miniconda3"
 
 
@@ -47,7 +48,7 @@ class CondaApp:
             yield [app.fetch for app in apps]
         finally:
             for app in apps:
-                app.__aexit__(None, None, None)
+                app.stop()
 
     def __init__(self, port: int, subdir: str, env: str):
         self.port = port
@@ -71,7 +72,7 @@ class CondaApp:
             else:
                 is_app_error, value = v
                 if is_app_error:
-                    raise AppError(v)
+                    raise AppError(value)
                 else:
                     return value
         else:
@@ -107,5 +108,5 @@ class CondaApp:
         if self.running():
             self.p.kill()
 
-    def __aexit__(self, _t: Any, _e: Any, _tb: Any):
+    async def __aexit__(self, _t: Any, _e: Any, _tb: Any):
         self.stop()
