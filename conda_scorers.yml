@@ -1,10 +1,13 @@
-name: ra-sa
+name: scorers
 channels:
+  - conda-forge
   - rdkit/label/nightly
   - defaults
+  - lich
 dependencies:
   - python=3.7
   - rdkit
   - pip
+  - syba
   - pip:
     - git+https://github.com/reymond-group/RAscore.git

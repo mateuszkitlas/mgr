@@ -1,5 +1,5 @@
 from main.conda_app import CondaApp
-from main.types import RaSaScScore
+from main.types import Scores
 from .utils import test_data
 import logging
 from unittest import IsolatedAsyncioTestCase, main
@@ -11,15 +11,16 @@ logging.basicConfig(level=logging.DEBUG)
 class Test(IsolatedAsyncioTestCase):
     async def test(self):
         try:
-            async with CondaApp[str, RaSaScScore](4000, "ra-sa", "ra-sa") as ra_sa_sc:
+            async with CondaApp[str, Scores](4000, "scorers", "scorers") as scorers:
                 mols = test_data()
                 for i, mol in enumerate(mols):
                     print(f"{i}/{len(mols)}")
-                    score = await ra_sa_sc(mol.smiles)
-                    delta: RaSaScScore = {
+                    score = await scorers(mol.smiles)
+                    delta: Scores = {
                         "sc": mol.sc - score["sc"],
                         "sa": mol.sa - score["sa"],
                         "ra": mol.ra - score["ra"],
+                        "syba": mol.syba - score["syba"],
                     }
                     self.assertLess(sum(delta.values()), 0.0001, mol.smiles)
         except KeyboardInterrupt:

@@ -4,6 +4,14 @@ import sys
 import os
 from .scscore import get_sc_scorer
 
+def get_syba_scorer() -> Callable[[str], float]:
+    from syba.syba import SybaClassifier
+    syba = SybaClassifier()
+    syba.fitDefaultScore()
+    def scorer(smiles: str) -> float:
+        return syba.predict(smiles)
+    return scorer
+
 
 def get_ra_scorer(
     model: str,  # Literal["DNN", "XGB"],
@@ -46,12 +54,16 @@ if __name__ == "__main__":
     ra_scorer = get_ra_scorer("DNN", "chembl")
     sa_scorer = get_sa_scorer()
     sc_scorer = get_sc_scorer()
+    print("Loading syba scorer. This may take some time.")
+    syba_scorer = get_syba_scorer()
+    print("Syba loaded.")
 
     def scorer(smiles: str):
         return smiles and {
             "ra": ra_scorer(smiles),
             "sa": sa_scorer(smiles),
             "sc": sc_scorer(smiles),
+            "syba": syba_scorer(smiles),
         }
 
     serve(scorer)

@@ -65,7 +65,7 @@ class CondaApp(Generic[T, R]):
         return f'CondaApp(port={self.port}, subdir="{self.subdir}", env="{self.env}", running={self.running()})'
 
     def running(self):
-        return self.p and self.p.returncode is None
+        return self.p and (self.p.poll() is None)
 
     async def fetch(self, data: Optional[T]) -> R:
         if self.running():

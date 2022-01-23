@@ -1,10 +1,11 @@
 from typing import TypedDict
 
 
-class RaSaScScore(TypedDict):
+class Scores(TypedDict):
     sa: float
     sc: float
     ra: float
+    syba: float
 
 
 class Tree(TypedDict):
