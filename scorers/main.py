@@ -54,7 +54,7 @@ if __name__ == "__main__":
     ra_time, ra_scorer = Timer.calc(lambda: get_ra_scorer("DNN", "chembl"))
     sa_time, sa_scorer = Timer.calc(get_sa_scorer)
     sc_time, sc_scorer = Timer.calc(get_sc_scorer)
-    print("Loading syba scorer. This may take some time.")
+    print("Loading syba scorer. It's gonna take ~2 minutes.")
     syba_time, syba_scorer = Timer.calc(get_syba_scorer)
     times = {"ra": ra_time, "sa": sa_time, "sc": sc_time, "syba": syba_time}
     print(f"Syba loaded. Loading times: {times}")
