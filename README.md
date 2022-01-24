@@ -12,11 +12,12 @@ conda env create -f conda_py3.10.yml
 ```
 
 # Computation time (in seconds)
-## Smiles
-```json
-{sa: 0.012774, sc: 1.48846, ra: 13.26315, syba: 0.00075}
+## Smiles in main/test.csv
+```
+Avarage timings {"sa": 0.007827979591836733, "sc": 0.4385612653061225, "ra": 4.057286632653062, "syba": 0.009300346938775511}
+Total time: 221.13583500000001, Real time: 15.883786
 ```
 ## Loading scorers
 ```json
-{ra: 0.00052, sa: 0.00035, sc: 0.21158, syba: 133.66499}
+{"ra": 2.316089, "sa": 0.000566, "sc": 0.043805, "syba": 120.992621}
 ```
