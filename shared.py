@@ -1,14 +1,11 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
-
-#from http.server import SimpleHTTPRequestHandler, HTTPServer
 from typing import Callable, Any, Tuple, TypeVar
 import json
 import os
 import sys
 import traceback
 import datetime
-import threading
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # disable tensorflow warnings
 
@@ -31,22 +28,18 @@ class Timer:
 
 
 def _serve(port: int, callback: Callable[[Any], Any]):
-    class S(BaseHTTPRequestHandler): #(SimpleHTTPRequestHandler):
+    class S(BaseHTTPRequestHandler):
         def log_message(self, format, *args):
             pass
 
         def do_POST(self):
-            print(threading.current_thread().name)
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length).decode("utf-8")
             try:
                 in_data = json.loads(post_data)
-                # print(f"CondaApp[port={port}, in] {in_data}")
                 out_data = callback(in_data)
-                # print(f"CondaApp[port={port}, out]")
                 result = (False, out_data)
             except Exception as e:
-                # print(f"CondaApp[port={port}, err] {e}")
                 result = (
                     True,
                     "".join(

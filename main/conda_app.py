@@ -22,7 +22,6 @@ class AppError(Exception):
 
 
 def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]:
-    print("_fetch started")
     try:
         req = request.Request(
             f"http://localhost:{port}", method="POST", data=json.dumps(data).encode(),
@@ -36,8 +35,6 @@ def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]
             return (True, e)
     except Exception as e:
         return (True, e)
-    finally:
-        print("_fetch done")
 
 
 T = TypeVar("T")
