@@ -2,6 +2,7 @@ from typing import Any, Optional
 from shared import serve, project_dir, Timer
 import os
 
+
 def serialize_state(state):
     in_stock_list = [mol in state.stock for mol in state.mols]
     expandable_smiles = [
@@ -19,7 +20,9 @@ def serialize_state(state):
 
 def serialize_tree(tree):
     return {
-        "children": [serialize_tree(child) if child else None for child in tree._children],
+        "children": [
+            serialize_tree(child) if child else None for child in tree._children
+        ],
         "is_solved": tree.is_solved,
         **serialize_state(tree._state),
     }

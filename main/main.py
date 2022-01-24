@@ -16,7 +16,9 @@ async def main():
     async with app_ai as ai, app_scorers as scorers:
         for i, test_mol in enumerate(mols):
             print(f"{i}/{len(mols)}")
-            tree, raw_score = await gather(ai(test_mol.smiles), scorers(test_mol.smiles))
+            tree, raw_score = await gather(
+                ai(test_mol.smiles), scorers(test_mol.smiles)
+            )
             timed_score = Score.from_raw(raw_score)
             print(timed_score)
 
