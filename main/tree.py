@@ -103,3 +103,20 @@ class Tree:
             "solvable": self.solvable,
             "children": [c.json() for c in self.children],
         }
+
+    def stats(self):
+        solved = 0
+        not_solved = 0
+        inodes = 0
+        for node in self.all_nodes():
+            if node.solved:
+                solved += 1
+            elif node.children:
+                inodes += 1
+            else:
+                not_solved += 1
+        return {
+            "solved": solved,
+            "not solved": not_solved,
+            "inodes": inodes,
+        }

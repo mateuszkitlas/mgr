@@ -3,9 +3,9 @@ from argparse import ArgumentParser
 from asyncio import run
 from typing import Tuple
 
-from . import stats
-from .data import data, load_trees, save_trees
+from .data import data, load_trees, paracetamol, save_trees
 from .helpers import app_ai, app_scorers
+from .stats import scatter_pairs
 from .tree import JsonTree, Tree
 
 
@@ -23,8 +23,16 @@ async def trees():
 
 def test_stats():
     [(_, json_tree)] = load_trees("test_all.json")
-    tree = Tree(json_tree)
-    stats.scatterPairs(tree)
+    scatter_pairs([(paracetamol, Tree(json_tree))])
+
+
+def stats():
+    mol_by_smiles = {mol.smiles: mol for mol in data()}
+    mols = [
+        (mol_by_smiles[smiles], Tree(json_tree))
+        for (smiles, json_tree) in load_trees("trees.json")
+    ]
+    scatter_pairs(mols)
 
 
 if __name__ == "__main__":

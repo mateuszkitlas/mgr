@@ -9,8 +9,6 @@ from shared import disable_syba, project_dir
 from .score import Score, Smiles
 from .tree import JsonTree
 
-paracetamol = "CC(=O)Nc1ccc(O)cc1"
-
 
 class Mol(NamedTuple):
     smiles: str
@@ -20,13 +18,19 @@ class Mol(NamedTuple):
     synthesis: str
     char: str
 
+    def __str__(self):
+        return f"{self.smiles}, {self.name}, {self.desc}, {self.additional}, {self.synthesis}, {self.char}"
+
+
+paracetamol = Mol("CC(=O)Nc1ccc(O)cc1", "paracetamol", "", "", "", "")
+
 
 @contextmanager
 def read_csv(filename: str, newline: Optional[str], delimiter: Optional[str]):
     with open(
         os.path.join(project_dir, "main", filename), encoding="utf-8", newline=newline
     ) as csvfile:
-        csvreader = csv.reader(csvfile, delimiter=delimiter)
+        csvreader = csv.reader(csvfile, delimiter=delimiter or ",")
         next(csvreader, None)  # header
         yield csvreader
 

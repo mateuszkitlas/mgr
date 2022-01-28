@@ -59,3 +59,4 @@ async def app_ai():
     app = _AppAi()
     async with app.conda_app:
         yield app
+    app.print_stats()
