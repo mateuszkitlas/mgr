@@ -2,12 +2,12 @@ import asyncio
 import logging
 from unittest import IsolatedAsyncioTestCase, main
 
-from main.tree import Tree
 from shared import Timer
 
-from .data import paracetamol, test_data
+from .data import load_trees, paracetamol, save_trees, test_data
 from .helpers import app_ai, app_scorers
 from .score import Score, Smiles
+from .tree import Tree
 
 logger = logging.Logger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -22,7 +22,13 @@ class Test(IsolatedAsyncioTestCase):
             async def fake_scorer(smiles: str):
                 return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0))
 
-            await Tree.from_ai(ai_tree, fake_scorer)
+            tree = await Tree.from_ai(ai_tree, fake_scorer)
+            save_trees([(paracetamol, tree.json())], "test_ai.json")
+            loaded_tree = Tree(load_trees("test_ai.json")[0][1])
+            self.assertEqual(
+                [n.ai_score for n in tree.all_nodes()],
+                [n.ai_score for n in loaded_tree.all_nodes()],
+            )
 
     async def test_scorers(self):
         test_mols = test_data()

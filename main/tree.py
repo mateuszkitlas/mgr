@@ -1,8 +1,9 @@
 from asyncio import gather
 from itertools import chain
-from typing import Awaitable, Callable, Iterable, Optional, TypeVar
+from typing import (Awaitable, Callable, Iterable, Optional, TypedDict,
+                    TypeVar, Union)
 
-from .score import Smiles
+from .score import JsonSmiles, Smiles
 from .types import AiTree
 from .utils import flatten
 
@@ -22,7 +23,7 @@ class _Tree:
     ```
     To one node:
     ```py
-    _CompressedTree(solved=False, solvable=False, children=[])
+    _Tree(solved=False, solvable=False, children=[])
     ```
     """
 
@@ -56,6 +57,15 @@ class _Tree:
         await gather(*(t._assign_scores(f) for t in self.all_nodes()))
 
 
+class JsonTree(TypedDict):
+    expandable: list[JsonSmiles]
+    in_stock: list[JsonSmiles]
+    solved: bool
+    ai_score: float
+    solvable: bool
+    children: list["JsonTree"]
+
+
 class Tree:
     @staticmethod
     async def from_ai(ai_tree: AiTree, f: Scorer):
@@ -63,15 +73,33 @@ class Tree:
         await _tree.assign_scores_rec(f)
         return Tree(_tree)
 
-    def __init__(self, t: _Tree):
-        assert t.expandable is not None
-        assert t.in_stock is not None
-        self.expandable = t.expandable
-        self.in_stock = t.in_stock
-        self.solved = t.solved
-        self.ai_score = t.score
-        self.solvable = t.solvable
-        self.children = [Tree(c) for c in t.children]
+    def __init__(self, t: Union[_Tree, JsonTree]):
+        if isinstance(t, _Tree):
+            assert t.expandable is not None
+            assert t.in_stock is not None
+            self.expandable = t.expandable
+            self.in_stock = t.in_stock
+            self.solved = t.solved
+            self.ai_score = t.score
+            self.solvable = t.solvable
+            self.children = [Tree(c) for c in t.children]
+        else:
+            self.expandable = [Smiles.from_json(s) for s in t["expandable"]]
+            self.in_stock = [Smiles.from_json(s) for s in t["in_stock"]]
+            self.solved = t["solved"]
+            self.ai_score = t["ai_score"]
+            self.solvable = t["solvable"]
+            self.children = [Tree(c) for c in t["children"]]
 
     def all_nodes(self) -> Iterable["Tree"]:
         return chain([self], flatten((c.all_nodes() for c in self.children)))
+
+    def json(self) -> JsonTree:
+        return {
+            "expandable": [s.json() for s in self.expandable],
+            "in_stock": [s.json() for s in self.in_stock],
+            "solved": self.solved,
+            "ai_score": self.ai_score,
+            "solvable": self.solvable,
+            "children": [c.json() for c in self.children],
+        }

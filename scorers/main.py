@@ -2,7 +2,7 @@ import os
 import sys
 from typing import Callable
 
-from shared import DISABLE_SYBA, Timer, project_dir, serve
+from shared import Timer, disable_syba, project_dir, serve
 
 # from .scscore_tensorflow import get_sc_scorer
 
@@ -71,14 +71,12 @@ def get_sa_scorer() -> Callable[[str], float]:
 
 
 if __name__ == "__main__":
-
     ra_time, ra_scorer = Timer.calc(lambda: get_ra_scorer("DNN", "chembl"))
     sa_time, sa_scorer = Timer.calc(get_sa_scorer)
     sc_time, sc_scorer = Timer.calc(get_sc_scorer)
     syba_time: float
     syba_scorer: Callable[[str], float]
-    if DISABLE_SYBA:
-        print("DISABLE_SYBA")
+    if disable_syba():
 
         def f(_: str) -> float:
             return 0.0

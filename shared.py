@@ -4,6 +4,7 @@ import os
 import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from inspect import getframeinfo, stack
 from socketserver import ThreadingMixIn
 from typing import Any, Awaitable, Callable, Tuple, TypeVar
 
@@ -70,4 +71,10 @@ def serve(callback: Callable[[Any], Any]):
     _serve(int(sys.argv[1]), callback)
 
 
-DISABLE_SYBA = bool(os.environ["DISABLE_SYBA"])
+def disable_syba():
+    if os.environ.get("DISABLE_SYBA"):
+        caller = getframeinfo(stack()[1][0])
+        print(f"DISABLE_SYBA: {caller.filename}:{caller.lineno}")
+        return True
+    else:
+        return False

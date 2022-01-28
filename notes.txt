@@ -1,0 +1,16 @@
+
+- zachowywać statystyki czasu liczenia
+- trzymać wszystkie smilesy
+1. Node taki ze: ma syns Node i NotSolved
+ra - avg
+for (not_solved: float, node: float)
+List[Tuple[float, float]]
+Scatter plot
+2. analogicznie jak w 1.
+ra - avg
+for (not_solved: float, node: float)
+  not_solved - float
+List[float] - histogram z jakąś granulacją
+3. policzyć Scores dla Solved (bez aizynth scora). bierzemy pary Solved i Node. analogicznie doo 1. i 2.
+4. (wszystkie NotSolved) i (wszystkie Node lub Solved) - boxplot
+  - ad. (wszystkie NotSolved) i (wszystkie Node) - boxplot score ai
