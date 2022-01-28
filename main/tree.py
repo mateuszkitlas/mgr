@@ -4,13 +4,10 @@ from typing import Awaitable, Callable, Iterable, Optional, TypeVar
 
 from .score import Smiles
 from .types import AiTree
+from .utils import flatten
 
 T = TypeVar("T")
 Scorer = Callable[[str], Awaitable[Smiles]]
-
-
-def flatten(l: Iterable[Iterable[T]]) -> Iterable[T]:
-    return (e for sl in l for e in sl)
 
 
 class _Tree:

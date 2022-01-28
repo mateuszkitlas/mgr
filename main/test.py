@@ -16,13 +16,13 @@ logging.basicConfig(level=logging.DEBUG)
 class Test(IsolatedAsyncioTestCase):
     async def test_ai(self):
         async with app_ai() as ai:
-            time, ai_tree = await ai(paracetamol)
-            print(f"AiZync paracetamol time: {time}")
+            ai_tree = await ai.tree(paracetamol)
+            ai.print_stats()
 
-            async def scorer(smiles: str):
+            async def fake_scorer(smiles: str):
                 return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0))
 
-            await Tree.from_ai(ai_tree, scorer)
+            await Tree.from_ai(ai_tree, fake_scorer)
 
     async def test_scorers(self):
         test_mols = test_data()
@@ -48,7 +48,7 @@ class Test(IsolatedAsyncioTestCase):
 
     async def test_all(self):
         async with app_ai() as ai, app_scorers() as scorer:
-            _time, ai_tree = await ai(paracetamol)
+            ai_tree = await ai.tree(paracetamol)
             real_time, tree = await Timer.acalc(Tree.from_ai(ai_tree, scorer.score))
             scorer.print_stats(real_time)
 

@@ -41,6 +41,15 @@ class Score(Generic[T]):
     def add(self, s: "Score[T]", f: Callable[[T, T], T]) -> "Score[T]":
         return self.map_with(s, f)
 
+    @staticmethod
+    def getters() -> list[Tuple[str, Callable[["Score[U]"], U]]]:
+        return [
+            ("sa", lambda s: s.sa),
+            ("sc", lambda s: s.sc),
+            ("ra", lambda s: s.ra),
+            ("syba", lambda s: s.syba),
+        ]
+
 
 class Smiles:
     def __init__(self, smiles: str, score: Score[float]):
