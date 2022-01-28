@@ -1,4 +1,3 @@
-import logging
 import os
 from argparse import ArgumentParser
 from asyncio import run
@@ -8,9 +7,6 @@ from . import stats
 from .data import data, load_trees, save_trees
 from .helpers import app_ai, app_scorers
 from .tree import JsonTree, Tree
-
-logger = logging.Logger(__name__)
-logging.basicConfig(level=logging.DEBUG)
 
 
 async def trees():
@@ -26,7 +22,7 @@ async def trees():
 
 
 def test_stats():
-    [(_, json_tree)] = load_trees("test_ai.json")
+    [(_, json_tree)] = load_trees("test_all.json")
     tree = Tree(json_tree)
     stats.scatterPairs(tree)
 

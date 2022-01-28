@@ -62,7 +62,7 @@ class Score(Generic[T]):
             ("sa", lambda s: s.sa),
             ("sc", lambda s: s.sc),
             ("ra", lambda s: s.ra),
-            *([] if disable_syba() else [("syba", lambda s: s.syba)]),
+            ("syba fake" if disable_syba() else "syba", lambda s: s.syba),
         ]
 
     def json(self) -> JsonScoreFloat:

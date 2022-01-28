@@ -4,3 +4,4 @@ dependencies:
   - black
   - isort
   - matplotlib
+  - ipykernel

@@ -22,13 +22,7 @@ class Test(IsolatedAsyncioTestCase):
             async def fake_scorer(smiles: str):
                 return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0))
 
-            tree = await Tree.from_ai(ai_tree, fake_scorer)
-            save_trees([(paracetamol, tree.json())], "test_ai.json")
-            loaded_tree = Tree(load_trees("test_ai.json")[0][1])
-            self.assertEqual(
-                [n.ai_score for n in tree.all_nodes()],
-                [n.ai_score for n in loaded_tree.all_nodes()],
-            )
+            await Tree.from_ai(ai_tree, fake_scorer)
 
     async def test_scorers(self):
         test_mols = test_data()
@@ -56,7 +50,12 @@ class Test(IsolatedAsyncioTestCase):
         async with app_ai() as ai, app_scorers() as scorer:
             ai_tree = await ai.tree(paracetamol)
             real_time, tree = await Timer.acalc(Tree.from_ai(ai_tree, scorer.score))
-            scorer.print_stats(real_time)
+            save_trees([(paracetamol, tree.json())], "test_all.json")
+            loaded_tree = Tree(load_trees("test_all.json")[0][1])
+            self.assertEqual(
+                [n.ai_score for n in tree.all_nodes()],
+                [n.ai_score for n in loaded_tree.all_nodes()],
+            )
 
 
 if __name__ == "__main__":
