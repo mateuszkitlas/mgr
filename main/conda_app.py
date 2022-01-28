@@ -23,18 +23,28 @@ class AppError(Exception):
     pass
 
 
+def _is_errno(e: URLError, errno: int):
+    return isinstance(e.reason, OSError) and e.reason.errno == errno
+
 def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]:
+    def f(e: Exception):
+        if remaining_retries > 0:
+            return _fetch(port, data, remaining_retries - 1)
+        else:
+            return (True, e)
     try:
         req = request.Request(
             f"http://localhost:{port}", method="POST", data=json.dumps(data).encode(),
         )
         res = request.urlopen(req)
         return (False, json.loads(res.read()))
-    except ConnectionResetError as e:
-        if remaining_retries > 0:
-            return _fetch(port, data, remaining_retries - 1)
+    except URLError as e:
+        if _is_errno(e, 110):
+            return f(e)
         else:
-            return (True, e)
+            raise e
+    except ConnectionResetError as e:
+        return f(e)
     except Exception as e:
         return (True, e)
 
@@ -63,6 +73,7 @@ class CondaApp(Generic[T, R]):
                 self.executor, _fetch, self.port, data
             )
             if is_internal_error:
+                logger.exception(v)
                 raise v
             else:
                 is_app_error, value = v
@@ -93,7 +104,7 @@ class CondaApp(Generic[T, R]):
             except RemoteDisconnected:
                 pass
             except URLError as e:
-                if not (isinstance(e.reason, OSError) and e.reason.errno == 111):
+                if not _is_errno(e, 111):
                     raise e
 
     async def start(self):
