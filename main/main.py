@@ -1,9 +1,10 @@
-from .types import RawScore, AiTree, Timed
-from .score import Score
+import logging
+from asyncio import gather, run
+
 from .conda_app import CondaApp
 from .data import Saver, data
-from asyncio import run, gather
-import logging
+from .score import Score
+from .types import AiTree, RawScore, Timed
 
 logger = logging.Logger(__name__)
 logging.basicConfig(level=logging.DEBUG)

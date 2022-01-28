@@ -1,5 +1,6 @@
-from typing import TypeVar, Generic, Type, Callable
-from .types import RawScore, Timed
+from typing import Callable, Generic, Tuple, TypeVar
+
+from .types import RawScore
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -13,7 +14,7 @@ class Score(Generic[T]):
         self.ra = ra
         self.syba = syba
 
-    def map_with(self, r: Type[R], score: "Score[U]", fn: Callable[[T, U], R]) -> "Score[R]":
+    def map_with(self, score: "Score[U]", fn: Callable[[T, U], R]) -> "Score[R]":
         return Score[R](
             fn(self.sa, score.sa),
             fn(self.sc, score.sc),
@@ -25,11 +26,26 @@ class Score(Generic[T]):
         return Score[R](fn(self.sa), fn(self.sc), fn(self.ra), fn(self.syba))
 
     def __str__(self):
-        return str(self.json())
-
-    def json(self):
-        return vars(self)
+        return f"sa: {self.sa}, sc: {self.sc}, ra: {self.ra}, syba: {self.syba}"
 
     @staticmethod
-    def from_raw(raw: RawScore) -> "Score[Timed[float]]":
-        return Score(sa=raw["sa"], sc=raw["sc"], ra=raw["ra"], syba=raw["syba"])
+    def from_raw(r: RawScore) -> Tuple["Score[float]", "Score[float]"]:
+        return (
+            Score(sa=r["sa"][0], sc=r["sc"][0], ra=r["ra"][0], syba=r["syba"][0]),
+            Score(sa=r["sa"][1], sc=r["sc"][1], ra=r["ra"][1], syba=r["syba"][1]),
+        )
+
+    def to_list(self):
+        return [self.sa, self.sc, self.ra, self.syba]
+
+    def add(self, s: "Score[T]", f: Callable[[T, T], T]) -> "Score[T]":
+        return self.map_with(s, f)
+
+
+class Smiles:
+    def __init__(self, smiles: str, score: Score[float]):
+        self.smiles = smiles
+        self.score = score
+
+    def __str__(self):
+        return f"{self.score}, smiles: {self.smiles}"

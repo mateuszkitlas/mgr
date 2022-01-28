@@ -5,18 +5,18 @@ and simply reinitializes from a save file.
 One method dumps the trainable variables as numpy arrays, which then enables the 
 standalone_model_numpy version of this class.
 """
-from typing import Callable
-from shared import project_dir
-
 # import tensorflow as tf
 import math
 import os
+from functools import reduce
+from typing import Callable
+
 import numpy as np
 import rdkit.Chem as Chem
 import rdkit.Chem.AllChem as AllChem
-import os
 import tensorflow.compat.v1 as tf
-from functools import reduce
+
+from shared import project_dir
 
 tf.get_logger().setLevel("ERROR")
 tf.disable_v2_behavior()

@@ -1,10 +1,12 @@
 import csv
-from contextlib import contextmanager
 import json
-from typing import Any, List, NamedTuple, Optional
-from .score import Score
-from shared import project_dir
 import os
+from contextlib import contextmanager
+from typing import Any, List, NamedTuple, Optional
+
+from shared import DISABLE_SYBA, project_dir
+
+from .score import Score, Smiles
 
 paracetamol = "CC(=O)Nc1ccc(O)cc1"
 
@@ -16,17 +18,6 @@ class Mol(NamedTuple):
     additional: str
     synthesis: str
     char: str
-
-
-class TestMol(NamedTuple):
-    smiles: str
-    sa: float
-    sc: float
-    syba: float
-    ra: float
-
-    def score(self):
-        return Score[float](self.sa, self.sc, self.ra, self.syba)
 
 
 @contextmanager
@@ -47,9 +38,18 @@ def data(small: bool):
 
 
 def test_data():
+    # header: SMILES  SAscore SCScore SYBA    RAscore
     with read_csv(f"test.csv", newline="\r\n", delimiter="\t") as reader:
         return [
-            TestMol(row[0], float(row[1]), float(row[2]), float(row[3]), float(row[4]))
+            Smiles(
+                row[0],
+                Score(
+                    float(row[1]),
+                    float(row[2]),
+                    float(row[4]),
+                    0.0 if DISABLE_SYBA else float(row[3]),
+                ),
+            )
             for row in reader
         ]
 

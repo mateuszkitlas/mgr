@@ -1,13 +1,15 @@
-import subprocess
+import concurrent.futures
 import json
+import logging
+import os
+import subprocess
+from asyncio import get_event_loop, sleep
+from http.client import RemoteDisconnected
 from typing import Any, Generic, Optional, Tuple, TypeVar
 from urllib import request
 from urllib.error import URLError
-from asyncio import sleep, get_event_loop
-import logging
-import concurrent.futures
-import os
-from http.client import RemoteDisconnected
+
+from shared import Timer
 
 logger = logging.Logger(__name__)
 conda_dir = os.environ["CONDA_PREFIX"]
@@ -42,22 +44,6 @@ R = TypeVar("R")
 
 
 class CondaApp(Generic[T, R]):
-    """
-    https://github.com/python/mypy/issues/6073
-
-    @staticmethod
-    @asynccontextmanager
-    async def many(first_port: int, pairs: List[Tuple[str, str]]):
-        apps = [CondaApp(first_port + i, subdir, env)
-                for (i, (subdir, env)) in enumerate(pairs)]
-        try:
-            await gather(*(app.start() for app in apps))
-            yield [app.fetch for app in apps]
-        finally:
-            for app in apps:
-                app.stop()
-    """
-
     def __init__(self, port: int, subdir: str, env: str):
         self.port = port
         self.subdir = subdir
@@ -66,7 +52,7 @@ class CondaApp(Generic[T, R]):
         self.executor: Optional[concurrent.futures.ProcessPoolExecutor] = None
 
     def __str__(self):
-        return f'CondaApp(port={self.port}, subdir="{self.subdir}", env="{self.env}", running={self.running()})'
+        return f'CondaApp(port={self.port}, subdir="{self.subdir}", env="{self.env}")'
 
     def running(self):
         return self.p and (self.p.poll() is None)
@@ -87,8 +73,7 @@ class CondaApp(Generic[T, R]):
         else:
             raise AppKilled()
 
-    async def start(self):
-        logger.info(self)
+    async def _start(self):
         assert not self.executor
         assert not self.p
         self.executor = concurrent.futures.ProcessPoolExecutor()
@@ -110,7 +95,10 @@ class CondaApp(Generic[T, R]):
             except URLError as e:
                 if not (isinstance(e.reason, OSError) and e.reason.errno == 111):
                     raise e
-        logger.info(self)
+
+    async def start(self):
+        time, _ = await Timer.acalc(self._start())
+        print(f"{self} starting time: {time}")
 
     async def __aenter__(self):
         await self.start()
@@ -123,7 +111,11 @@ class CondaApp(Generic[T, R]):
         if self.running():
             assert self.p
             self.p.kill()
+            try:
+                self.p.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                print(f"{self} did not exited gracefully")
             self.p = None
 
-    async def __aexit__(self, _t: Any, _e: Any, _tb: Any):
+    async def __aexit__(self, *_: Any):
         self.stop()

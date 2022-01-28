@@ -4,15 +4,16 @@ dependency and is a more attractive option for deployment. The calculations are
 fast enough that there is no real reason to use GPUs (via tf) instead of CPUs (via np)
 """
 
-import math, os
+import gzip
+import json
+import math
+import os
+
 import numpy as np
 import rdkit.Chem as Chem
 import rdkit.Chem.AllChem as AllChem
-import json
-import gzip
-from shared import project_dir
 
-import os
+from shared import project_dir
 
 project_root = os.path.dirname(os.path.dirname(__file__))
 

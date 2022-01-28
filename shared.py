@@ -1,11 +1,11 @@
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import ThreadingMixIn
-from typing import Callable, Any, Tuple, TypeVar
+import datetime
 import json
 import os
 import sys
 import traceback
-import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
+from typing import Any, Awaitable, Callable, Tuple, TypeVar
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # disable tensorflow warnings
 
@@ -13,15 +13,23 @@ project_dir = os.path.dirname(os.path.realpath(__file__))
 
 T = TypeVar("T")
 
+
 class Timer:
     @staticmethod
     def calc(fn: Callable[[], T]) -> Tuple[float, T]:
         timer = Timer()
         result = fn()
         return timer.done(), result
-      
+
+    @staticmethod
+    async def acalc(awaitable: Awaitable[T]) -> Tuple[float, T]:
+        timer = Timer()
+        result = await awaitable
+        return timer.done(), result
+
     def __init__(self):
         self.start = datetime.datetime.now()
+
     def done(self):
         self.delta = (datetime.datetime.now() - self.start).total_seconds()
         return self.delta
@@ -29,7 +37,7 @@ class Timer:
 
 def _serve(port: int, callback: Callable[[Any], Any]):
     class S(BaseHTTPRequestHandler):
-        def log_message(self, format, *args):
+        def log_message(self, *args: Any):
             pass
 
         def do_POST(self):
@@ -60,3 +68,6 @@ def _serve(port: int, callback: Callable[[Any], Any]):
 
 def serve(callback: Callable[[Any], Any]):
     _serve(int(sys.argv[1]), callback)
+
+
+DISABLE_SYBA = bool(os.environ["DISABLE_SYBA"])

@@ -5,4 +5,5 @@ test:
 	${CONDA_PREFIX}/envs/py3.10/bin/python -m main.test
 
 format:
-	${CONDA_PREFIX}/envs/py3.10/bin/black */*.py
+	${CONDA_PREFIX}/envs/py3.10/bin/black *.py **/*.py
+	${CONDA_PREFIX}/envs/py3.10/bin/isort *.py **/*.py

@@ -1,6 +1,7 @@
-from typing import Any, Optional
-from shared import serve, project_dir, Timer
 import os
+from typing import Any, Optional
+
+from shared import Timer, project_dir, serve
 
 
 def serialize_state(state):

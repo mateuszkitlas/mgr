@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, TypeVar, TypedDict
+from typing import Optional, Tuple, TypedDict, TypeVar
 
 T = TypeVar("T")
 Timed = Tuple[float, T]
