@@ -8,6 +8,7 @@ class RawScore(TypedDict):
     sa: Timed[float]
     sc: Timed[float]
     ra: Timed[float]
+    mf: Timed[float]
     syba: Timed[float]
 
 

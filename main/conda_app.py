@@ -26,12 +26,14 @@ class AppError(Exception):
 def _is_errno(e: URLError, errno: int):
     return isinstance(e.reason, OSError) and e.reason.errno == errno
 
+
 def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]:
     def f(e: Exception):
         if remaining_retries > 0:
             return _fetch(port, data, remaining_retries - 1)
         else:
             return (True, e)
+
     try:
         req = request.Request(
             f"http://localhost:{port}", method="POST", data=json.dumps(data).encode(),

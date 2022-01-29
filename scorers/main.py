@@ -2,9 +2,23 @@ import os
 import sys
 from typing import Callable
 
-from shared import Timer, disable_syba, project_dir, serve
+from shared import (Timer, disable_mf, disable_syba, paracetamol_smiles,
+                    project_dir, serve)
 
 # from .scscore_tensorflow import get_sc_scorer
+
+
+def dummy_scorer(smiles: str):
+    return 0.0
+
+
+def get_mf_scorer() -> Callable[[str], float]:
+    if disable_mf():
+        return dummy_scorer
+    else:
+        from .mf_score.mfscore.ocsvm import score_smiles
+
+        return score_smiles
 
 
 def get_sc_scorer() -> Callable[[str], float]:
@@ -21,15 +35,19 @@ def get_sc_scorer() -> Callable[[str], float]:
 
 
 def get_syba_scorer() -> Callable[[str], float]:
-    from syba.syba import SybaClassifier
+    if disable_syba():
+        return dummy_scorer
+    else:
+        print("Loading syba scorer. It's gonna take ~2 minutes.")
+        from syba.syba import SybaClassifier
 
-    syba = SybaClassifier()
-    syba.fitDefaultScore()
+        syba = SybaClassifier()
+        syba.fitDefaultScore()
 
-    def scorer(smiles: str) -> float:
-        return syba.predict(smiles)
+        def scorer(smiles: str) -> float:
+            return syba.predict(smiles)
 
-    return scorer
+        return scorer
 
 
 def get_ra_scorer(
@@ -74,19 +92,16 @@ if __name__ == "__main__":
     ra_time, ra_scorer = Timer.calc(lambda: get_ra_scorer("DNN", "chembl"))
     sa_time, sa_scorer = Timer.calc(get_sa_scorer)
     sc_time, sc_scorer = Timer.calc(get_sc_scorer)
-    syba_time: float
-    syba_scorer: Callable[[str], float]
-    if disable_syba():
-
-        def f(_: str) -> float:
-            return 0.0
-
-        syba_time, syba_scorer = 0.0, f
-    else:
-        print("Loading syba scorer. It's gonna take ~2 minutes.")
-        syba_time, syba_scorer = Timer.calc(get_syba_scorer)
-        times = {"ra": ra_time, "sa": sa_time, "sc": sc_time, "syba": syba_time}
-        print(f"Syba loaded. Loading times: {times}")
+    mf_time, mf_scorer = Timer.calc(get_mf_scorer)
+    syba_time, syba_scorer = Timer.calc(get_syba_scorer)
+    times = {
+        "ra": ra_time,
+        "sa": sa_time,
+        "sc": sc_time,
+        "syba": syba_time,
+        "mf": mf_time,
+    }
+    print(f"Loading times: {times}")
 
     def scorer(smiles: str):
         return smiles and {
@@ -94,8 +109,9 @@ if __name__ == "__main__":
             "sa": Timer.calc(lambda: sa_scorer(smiles)),
             "sc": Timer.calc(lambda: sc_scorer(smiles)),
             "syba": Timer.calc(lambda: syba_scorer(smiles)),
+            "mf": Timer.calc(lambda: mf_scorer(smiles)),
         }
 
-    scorer("CC(=O)Nc1ccc(O)cc1")  # warm up
+    scorer(paracetamol_smiles)  # warm up
 
     serve(scorer)

@@ -14,6 +14,8 @@ project_dir = os.path.dirname(os.path.realpath(__file__))
 
 T = TypeVar("T")
 
+paracetamol_smiles = "CC(=O)Nc1ccc(O)cc1"
+
 
 class Timer:
     @staticmethod
@@ -69,6 +71,15 @@ def _serve(port: int, callback: Callable[[Any], Any]):
 
 def serve(callback: Callable[[Any], Any]):
     _serve(int(sys.argv[1]), callback)
+
+
+def disable_mf():
+    if os.environ.get("DISABLE_MF"):
+        caller = getframeinfo(stack()[1][0])
+        print(f"DISABLE_MF: {caller.filename}:{caller.lineno}")
+        return True
+    else:
+        return False
 
 
 def disable_syba():

@@ -4,9 +4,8 @@ import os
 from contextlib import contextmanager
 from typing import NamedTuple, Optional, Tuple
 
-from shared import disable_syba, project_dir
+from shared import paracetamol_smiles, project_dir
 
-from .score import Score, Smiles
 from .tree import JsonTree
 
 
@@ -22,7 +21,7 @@ class Mol(NamedTuple):
         return f"{self.smiles}, {self.name}, {self.desc}, {self.additional}, {self.synthesis}, {self.char}"
 
 
-paracetamol = Mol("CC(=O)Nc1ccc(O)cc1", "paracetamol", "", "", "", "")
+paracetamol = Mol(paracetamol_smiles, "paracetamol", "", "", "", "")
 
 
 @contextmanager
@@ -53,21 +52,3 @@ def save_trees(data: list[Tuple[str, JsonTree]], filename: str):
 def load_trees(filename: str) -> list[Tuple[str, JsonTree]]:
     with open(os.path.join(results_dir, filename)) as f:
         return json.load(f)
-
-
-def test_data():
-    _disable_syba = disable_syba()
-    # header: SMILES  SAscore SCScore SYBA    RAscore
-    with read_csv(f"test.csv", newline="\r\n", delimiter="\t") as reader:
-        return [
-            Smiles(
-                row[0],
-                Score(
-                    sa=float(row[1]),
-                    sc=float(row[2]),
-                    ra=float(row[4]),
-                    syba=0.0 if _disable_syba else float(row[3]),
-                ),
-            )
-            for row in reader
-        ]

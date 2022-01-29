@@ -1,9 +1,10 @@
 import asyncio
+from typing import Callable
 from unittest import IsolatedAsyncioTestCase, main
 
-from shared import Timer
+from shared import Timer, disable_mf, disable_syba
 
-from .data import load_trees, paracetamol, save_trees, test_data
+from .data import load_trees, paracetamol, read_csv, save_trees
 from .helpers import app_ai, app_scorers
 from .score import Score, Smiles
 from .tree import Tree
@@ -16,31 +17,72 @@ class Test(IsolatedAsyncioTestCase):
             ai.print_stats()
 
             async def fake_scorer(smiles: str):
-                return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0))
+                return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0, 0.0))
 
             await Tree.from_ai(ai_tree, fake_scorer)
 
-    async def test_scorers(self):
-        test_mols = test_data()
+    async def _test_scorers(
+        self, mols: list[Smiles], test_fn: Callable[[Score[float]], bool]
+    ):
         async with app_scorers() as scorer:
             real_time, smiles = await Timer.acalc(
-                asyncio.gather(*(scorer.score(m.smiles) for m in test_mols))
+                asyncio.gather(*(scorer.score(m.smiles) for m in mols))
             )
             scorer.print_stats(real_time)
             failed: list[str] = []
-            for test_mol, smiles in zip(test_mols, smiles):
+            for test_mol, smiles in zip(mols, smiles):
                 diff = test_mol.score.add(
                     smiles.score, lambda expected, actual: abs(actual - expected)
                 )
-                if (
-                    diff.sa > 0.0001
-                    or diff.sc > 0.0001
-                    or diff.ra > 0.0001
-                    or diff.syba > 0.0001
-                ):
-                    failed.append(str(Smiles(smiles.smiles, diff)))
+                if test_fn(diff):
+                    failed.append("\n" + str(Smiles(smiles.smiles, diff)))
             if failed:
-                self.fail("\n".join(failed))
+                self.fail("".join(failed))
+
+    async def test_mf(self):
+        if disable_mf():
+            self.skipTest("DISABLE_MF")
+
+        def test_fn(diff: Score[float]):
+            return diff.mf > 0.0001
+
+        aspirin = Smiles(
+            "O=C(C)Oc1ccccc1C(=O)O", Score(0.0, 0.0, 0.0, 10.232122084989555, 0.0)
+        )
+        cholesterol = Smiles(
+            "C[C@H](CCCC(C)C)[C@H]1CC[C@@H]2[C@@]1(CC[C@H]3[C@H]2CC=C4[C@@]3(CC[C@@H](C4)O)C)C",
+            Score(0.0, 0.0, 0.0, -412.95839636, 0.0),
+        )
+
+        await self._test_scorers([aspirin, cholesterol], test_fn)
+
+    async def test_scorers(self):
+        _disable_syba = disable_syba()
+        with read_csv(f"test.csv", newline="\r\n", delimiter="\t") as reader:
+            # header: SMILES  SAscore SCScore SYBA    RAscore
+            mols = [
+                Smiles(
+                    row[0],
+                    Score(
+                        sa=float(row[1]),
+                        sc=float(row[2]),
+                        ra=float(row[4]),
+                        mf=0.0,
+                        syba=float(row[3]),
+                    ),
+                )
+                for row in reader
+            ]
+
+        def test_fn(diff: Score[float]):
+            return (
+                diff.sa > 0.0001
+                or diff.sc > 0.0001
+                or diff.ra > 0.0001
+                or (False if _disable_syba else diff.syba > 0.0001)
+            )
+
+        await self._test_scorers(mols, test_fn)
 
     async def test_all(self):
         async with app_ai() as ai, app_scorers() as scorer:
