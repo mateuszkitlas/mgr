@@ -1,5 +1,7 @@
 from typing import Callable, Generic, Tuple, TypedDict, TypeVar
 
+from .utils import serialize_dict
+
 from .types import RawScore
 
 T = TypeVar("T")
@@ -42,7 +44,7 @@ class Score(Generic[T]):
         )
 
     def __str__(self):
-        return f"sa: {self.sa}, sc: {self.sc}, ra: {self.ra}, syba: {self.syba}"
+        return serialize_dict(self.json(), ",")
 
     @staticmethod
     def from_raw(r: RawScore) -> Tuple["Score[float]", "Score[float]"]:

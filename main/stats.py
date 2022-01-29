@@ -1,15 +1,19 @@
-from typing import Any, Callable, Tuple, TypeVar
 
-import matplotlib.pyplot as plt
+from typing import Any, Callable, Tuple, TypeVar, Union
+
 import matplotlib
+import matplotlib.pyplot as plt
 from IPython.display import HTML, display
+
+
+
 
 from .data import Mol
 from .score import Score
 from .tree import Tree
-from .utils import flatten
+from .utils import flatten, serialize_dict
 
-matplotlib.rc('font', size=5)
+matplotlib.rc("font", size=5)
 
 T = TypeVar("T")
 
@@ -17,15 +21,18 @@ T = TypeVar("T")
 def avg(l: list[float]):
     return sum(l) / len(l)
 
+def _span(txt: str, styles: dict[str, Union[str, int]]):
+    return f"<span style='{serialize_dict(styles, ';')}'>{txt}</span>"
 
 _funs: list[Tuple[str, str, dict[str, Any], Callable[[list[float]], float]]] = [
-    ("min", "blue", {"marker":"o", "edgecolor": "blue", "facecolor": "none"}, min),
+    ("min", "blue", {"marker": "o", "edgecolor": "blue", "facecolor": "none"}, min),
     ("max", "red", {"marker": "x", "color": "red"}, max),
     ("avg", "green", {"marker": "+", "color": "green"}, avg),
 ]
-_funs_names = ", ".join((f"{name} ({color} marker)" for name, color, _2, _3 in _funs))
+_funs_names = ", ".join((_span(name, {"color": color}) for name, color, _2, _3 in _funs))
 
 _score_getters = [*Score.getters(), ("ai", None)]
+
 
 def _pairs(node: Tree):
     return (
@@ -50,7 +57,7 @@ def _scatter_pairs_for_roots(roots: list[Tree], source: str):
         fig.suptitle(f"source={source}")
         for _1, _2, kwargs, stat_fn in _funs:
             xs, ys = _unzip_pairs(points)
-            
+
             for (score_name, getter), ax in zip(_score_getters, axs.flat):
 
                 def stat(t: Tree) -> float:
@@ -62,7 +69,7 @@ def _scatter_pairs_for_roots(roots: list[Tree], source: str):
                 x, y = [stat(x) for x in xs], [stat(y) for y in ys]
                 ax.set_title(f"score={score_name}")
                 ax.scatter(x, y, s=4, linewidths=1, **kwargs)
-                ax.ticklabel_format(style='plain')
+                ax.ticklabel_format(style="plain")
         plt.show()
     else:
         display(HTML(f"too little data in source={source}"))
@@ -71,7 +78,7 @@ def _scatter_pairs_for_roots(roots: list[Tree], source: str):
 _score_names = ", ".join((name for name, _ in _score_getters))
 
 _scatter_pairs_desc = f"""
-<span style='font-family:"Courier New"'>source, stat_fn, score</span> - displayed on figure
+{_span("source, stat_fn, score", {"font-family": "monospace"})} - displayed on figure
 <pre>
 for every node in source:
   for every (x,y) in node.children:
@@ -92,6 +99,8 @@ for every node in source:
 def scatter_pairs(mols: list[Tuple[Mol, Tree]]):
     display(HTML(_scatter_pairs_desc))
     solvable_mols = len([None for _, root in mols if root.solvable])
-    _scatter_pairs_for_roots([root for _, root in mols], f"all ({solvable_mols} solvable mols)")
+    _scatter_pairs_for_roots(
+        [root for _, root in mols], f"all ({solvable_mols} solvable mols)"
+    )
     for mol, root in mols:
         _scatter_pairs_for_roots([root], f"{mol.name}; {root.stats()}")
