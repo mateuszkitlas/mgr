@@ -73,7 +73,9 @@ for every node in source:
 
 def _scatter_pairs_for_roots(roots: list[Tree], source: str):
     all_nodes = flatten((root.all_nodes() for root in roots))
-    points = list(flatten((_pairs(node, "internal", "not_solved") for node in all_nodes)))
+    points = list(
+        flatten((_pairs(node, "internal", "not_solved") for node in all_nodes))
+    )
     if points:
         fig, axs = plt.subplots(nrows=3, ncols=2)
         fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.94)
@@ -101,18 +103,24 @@ def _scatter_pairs_for_roots(roots: list[Tree], source: str):
 
 
 def scatter_pairs(mols: list[Tuple[Mol, Tree]]):
-    display(HTML(_pairs_desc("(f(x), f(y))", "solvable inner node", "not solvable node")))
+    display(
+        HTML(_pairs_desc("(f(x), f(y))", "solvable inner node", "not solvable node"))
+    )
     solvable_mols = len([root for _, root in mols if root.type == "internal"])
     _scatter_pairs_for_roots(
         [root for _, root in mols], f"all ({solvable_mols} solvable mols)"
     )
     for mol, root in mols:
-        _scatter_pairs_for_roots([root], f"{mol.name}; {serialize_dict(root.stats, ', ')}")
+        _scatter_pairs_for_roots(
+            [root], f"{mol.name}; {serialize_dict(root.stats, ', ')}"
+        )
 
 
 def _histogram_pairs_for_roots(roots: list[Tree], source: str):
     all_nodes = flatten((root.all_nodes() for root in roots))
-    points = list(flatten((_pairs(node, "internal", "not_solved") for node in all_nodes)))
+    points = list(
+        flatten((_pairs(node, "internal", "not_solved") for node in all_nodes))
+    )
     if points:
         fig, axs = plt.subplots(nrows=3, ncols=2)
         fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.94)
@@ -142,13 +150,17 @@ def _histogram_pairs_for_roots(roots: list[Tree], source: str):
 
 
 def histogram_pairs(mols: list[Tuple[Mol, Tree]]):
-    display(HTML(_pairs_desc("f(x) - f(y)", "solvable inner node", "not solvable node")))
+    display(
+        HTML(_pairs_desc("f(x) - f(y)", "solvable inner node", "not solvable node"))
+    )
     solvable_mols = len([root for _, root in mols if root.type == "internal"])
     _histogram_pairs_for_roots(
         [root for _, root in mols], f"all ({solvable_mols} solvable mols)"
     )
     for mol, root in mols:
-        _histogram_pairs_for_roots([root], f"{mol.name}; {serialize_dict(root.stats, ', ')}")
+        _histogram_pairs_for_roots(
+            [root], f"{mol.name}; {serialize_dict(root.stats, ', ')}"
+        )
 
 
 def main(fn: Fn[list[Tuple[Mol, Tree]], None]):

@@ -1,7 +1,8 @@
 from asyncio import gather
 from functools import cached_property
 from itertools import chain
-from typing import Awaitable, Iterable, Literal, Optional, Tuple, TypedDict, TypeVar, Union
+from typing import (Awaitable, Iterable, Literal, Optional, Tuple, TypedDict,
+                    TypeVar, Union)
 
 from shared import Fn
 
@@ -39,9 +40,13 @@ class _Tree:
         if solved:
             assert not true_children
         compressed_children = [_Tree(c) for c in true_children]
-        solvable = solved or any(c for c in compressed_children if c.type in ("solved", "internal"))
+        solvable = solved or any(
+            c for c in compressed_children if c.type in ("solved", "internal")
+        )
         self.children = compressed_children if solvable else []
-        self.type: TreeTypes = "solved" if solved else ("internal" if solvable else "not_solved")
+        self.type: TreeTypes = "solved" if solved else (
+            "internal" if solvable else "not_solved"
+        )
         assert (
             (self.type == "solved" and (not self._expandable) and self._in_stock)
             or (self.type == "not_solved" and self._expandable)
@@ -65,13 +70,13 @@ class _Tree:
     async def assign_scores_rec(self, f: Scorer):
         await gather(*(t._assign_scores(f) for t in self.all_nodes()))
 
+
 class JsonTree(TypedDict):
     expandable: list[JsonSmiles]
     in_stock: list[JsonSmiles]
     ai_score: float
     children: list["JsonTree"]
     type: TreeTypes
-
 
 
 class Tree:

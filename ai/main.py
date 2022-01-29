@@ -9,10 +9,14 @@ from shared import Timer, project_dir, serve
 def serialize_state(state):
     in_stock_list = [mol in state.stock for mol in state.mols]
     expandable = [
-        (mol.smiles, mol.transform) for mol, in_stock in zip(state.mols, in_stock_list) if not in_stock
+        (mol.smiles, mol.transform)
+        for mol, in_stock in zip(state.mols, in_stock_list)
+        if not in_stock
     ]
     in_stock = [
-        (mol.smiles, mol.transform) for mol, in_stock in zip(state.mols, in_stock_list) if in_stock
+        (mol.smiles, mol.transform)
+        for mol, in_stock in zip(state.mols, in_stock_list)
+        if in_stock
     ]
     return {
         "ai_score": state.score,

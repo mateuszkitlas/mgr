@@ -38,7 +38,9 @@ class Test(IsolatedAsyncioTestCase):
                     syba=abs(test_mol.score.syba - smiles.score.syba),
                 )
                 if test_fn(diff):
-                    failed.append("\n" + str(Smiles(smiles.smiles, diff, smiles.transforms)))
+                    failed.append(
+                        "\n" + str(Smiles(smiles.smiles, diff, smiles.transforms))
+                    )
             if failed:
                 self.fail("".join(failed))
 

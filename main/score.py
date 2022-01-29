@@ -95,7 +95,11 @@ class Smiles:
         return serialize_dict(self.json(), ", ")
 
     def json(self) -> JsonSmiles:
-        return {"smiles": self.smiles, "score": self.score.json(), "transforms": self.transforms}
+        return {
+            "smiles": self.smiles,
+            "score": self.score.json(),
+            "transforms": self.transforms,
+        }
 
     @staticmethod
     def from_json(j: JsonSmiles):
