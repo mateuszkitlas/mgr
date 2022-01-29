@@ -50,5 +50,8 @@ def save_trees(data: list[Tuple[str, JsonTree]], filename: str):
 
 
 def load_trees(filename: str) -> list[Tuple[str, JsonTree]]:
-    with open(os.path.join(results_dir, filename)) as f:
-        return json.load(f)
+    try:
+        with open(os.path.join(results_dir, filename)) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []

@@ -9,5 +9,6 @@ dependencies:
   - rdkit
   - pip
   - syba
+  - scikit-learn
   - pip:
     - git+https://github.com/reymond-group/RAscore.git
