@@ -150,6 +150,7 @@ def histogram_pairs(mols: list[Tuple[Mol, Tree]]):
     for mol, root in mols:
         _histogram_pairs_for_roots([root], f"{mol.name}; {root.stats()}")
 
+
 def main(fn: Fn[list[Tuple[Mol, Tree]], None]):
     mol_by_smiles = {mol.smiles: mol for mol in data()}
     mols = [
