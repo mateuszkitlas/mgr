@@ -14,7 +14,7 @@ class RawScore(TypedDict):
 
 class AiTree(TypedDict):
     is_solved: bool
-    score: float
-    expandable_smiles: list[str]
-    in_stock_smiles: list[str]
+    ai_score: float
+    expandable: list[Tuple[str, Optional[int]]]
+    in_stock: list[Tuple[str, Optional[int]]]
     children: list[Optional["AiTree"]]

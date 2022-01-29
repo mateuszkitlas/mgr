@@ -8,7 +8,7 @@ from shared import Fn
 
 from .data import Mol, data, load_trees
 from .score import Score
-from .tree import Tree
+from .tree import Tree, TreeTypes
 from .utils import flatten, serialize_dict
 
 matplotlib.rc("font", size=5)
@@ -36,11 +36,11 @@ _funs_names = ", ".join(
 _score_getters = [*Score.getters(), ("ai", None)]
 
 
-def _pairs(node: Tree):
+def _pairs(node: Tree, type1: TreeTypes, type2: TreeTypes):
     return (
         (solvable, not_solvable)
-        for solvable in (c for c in node.children if c.solvable and not c.solved)
-        for not_solvable in (c for c in node.children if not c.solvable)
+        for solvable in (c for c in node.children if c.type == type1)
+        for not_solvable in (c for c in node.children if not c.type == type2)
     )
 
 
@@ -51,15 +51,15 @@ def _unzip_pairs(l: list[Tuple[T, T]]):
 _score_names = ", ".join((name for name, _ in _score_getters))
 
 
-def _pairs_desc(point_desc: str):
+def _pairs_desc(point_desc: str, x_desc: str, y_desc: str):
     return f"""
 {_span("source, stat_fn, score", {"font-family": "monospace"})} - displayed on figure
 <pre>
 for every node in source:
   for every (x,y) in node.children:
     where
-      x = solvable inner node, represended on x-axis
-      y = not solvable node, represented on y-axis
+      x = {x_desc}, represended on x-axis
+      y = {y_desc}, represented on y-axis
     for score in [{_score_names}]:
       # if score==ai: avg == min == max
       for stat_fn in [{_funs_names}]:
@@ -73,7 +73,7 @@ for every node in source:
 
 def _scatter_pairs_for_roots(roots: list[Tree], source: str):
     all_nodes = flatten((root.all_nodes() for root in roots))
-    points = list(flatten((_pairs(node) for node in all_nodes)))
+    points = list(flatten((_pairs(node, "internal", "not_solved") for node in all_nodes)))
     if points:
         fig, axs = plt.subplots(nrows=3, ncols=2)
         fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.94)
@@ -101,18 +101,18 @@ def _scatter_pairs_for_roots(roots: list[Tree], source: str):
 
 
 def scatter_pairs(mols: list[Tuple[Mol, Tree]]):
-    display(HTML(_pairs_desc("(f(x), f(y))")))
-    solvable_mols = len([None for _, root in mols if root.solvable])
+    display(HTML(_pairs_desc("(f(x), f(y))", "solvable inner node", "not solvable node")))
+    solvable_mols = len([root for _, root in mols if root.type == "internal"])
     _scatter_pairs_for_roots(
         [root for _, root in mols], f"all ({solvable_mols} solvable mols)"
     )
     for mol, root in mols:
-        _scatter_pairs_for_roots([root], f"{mol.name}; {root.stats()}")
+        _scatter_pairs_for_roots([root], f"{mol.name}; {serialize_dict(root.stats, ', ')}")
 
 
 def _histogram_pairs_for_roots(roots: list[Tree], source: str):
     all_nodes = flatten((root.all_nodes() for root in roots))
-    points = list(flatten((_pairs(node) for node in all_nodes)))
+    points = list(flatten((_pairs(node, "internal", "not_solved") for node in all_nodes)))
     if points:
         fig, axs = plt.subplots(nrows=3, ncols=2)
         fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.94)
@@ -142,13 +142,13 @@ def _histogram_pairs_for_roots(roots: list[Tree], source: str):
 
 
 def histogram_pairs(mols: list[Tuple[Mol, Tree]]):
-    display(HTML(_pairs_desc("f(x) - f(y)")))
-    solvable_mols = len([None for _, root in mols if root.solvable])
+    display(HTML(_pairs_desc("f(x) - f(y)", "solvable inner node", "not solvable node")))
+    solvable_mols = len([root for _, root in mols if root.type == "internal"])
     _histogram_pairs_for_roots(
         [root for _, root in mols], f"all ({solvable_mols} solvable mols)"
     )
     for mol, root in mols:
-        _histogram_pairs_for_roots([root], f"{mol.name}; {root.stats()}")
+        _histogram_pairs_for_roots([root], f"{mol.name}; {serialize_dict(root.stats, ', ')}")
 
 
 def main(fn: Fn[list[Tuple[Mol, Tree]], None]):

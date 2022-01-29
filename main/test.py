@@ -1,5 +1,5 @@
 import asyncio
-from typing import Callable
+from typing import Optional, Tuple
 from unittest import IsolatedAsyncioTestCase, main
 
 from shared import Fn, Timer, disable_mf, disable_syba
@@ -16,24 +16,29 @@ class Test(IsolatedAsyncioTestCase):
             ai_tree = await ai.tree(paracetamol.smiles)
             ai.print_stats()
 
-            async def fake_scorer(smiles: str):
-                return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0, 0.0))
+            async def fake_scorer(x: Tuple[str, Optional[int]]):
+                smiles, transforms = x
+                return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0, 0.0), transforms)
 
             await Tree.from_ai(ai_tree, fake_scorer)
 
     async def _test_scorers(self, mols: list[Smiles], test_fn: Fn[Score[float], bool]):
         async with app_scorers() as scorer:
             real_time, smiles = await Timer.acalc(
-                asyncio.gather(*(scorer.score(m.smiles) for m in mols))
+                asyncio.gather(*(scorer.score((m.smiles, m.transforms)) for m in mols))
             )
             scorer.print_stats(real_time)
             failed: list[str] = []
             for test_mol, smiles in zip(mols, smiles):
-                diff = test_mol.score.add(
-                    smiles.score, lambda expected, actual: abs(actual - expected)
+                diff = Score[float](
+                    sa=abs(test_mol.score.sa - smiles.score.sa),
+                    sc=abs(test_mol.score.sc - smiles.score.sc),
+                    ra=abs(test_mol.score.ra - smiles.score.ra),
+                    mf=abs(test_mol.score.mf - smiles.score.mf),
+                    syba=abs(test_mol.score.syba - smiles.score.syba),
                 )
                 if test_fn(diff):
-                    failed.append("\n" + str(Smiles(smiles.smiles, diff)))
+                    failed.append("\n" + str(Smiles(smiles.smiles, diff, smiles.transforms)))
             if failed:
                 self.fail("".join(failed))
 
@@ -45,11 +50,14 @@ class Test(IsolatedAsyncioTestCase):
             return diff.mf > 0.0001
 
         aspirin = Smiles(
-            "O=C(C)Oc1ccccc1C(=O)O", Score(0.0, 0.0, 0.0, 10.232122084989555, 0.0)
+            "O=C(C)Oc1ccccc1C(=O)O",
+            Score(0.0, 0.0, 0.0, 10.232122084989555, 0.0),
+            None,
         )
         cholesterol = Smiles(
             "C[C@H](CCCC(C)C)[C@H]1CC[C@@H]2[C@@]1(CC[C@H]3[C@H]2CC=C4[C@@]3(CC[C@@H](C4)O)C)C",
             Score(0.0, 0.0, 0.0, -412.95839636, 0.0),
+            None,
         )
 
         await self._test_scorers([aspirin, cholesterol], test_fn)
@@ -68,6 +76,7 @@ class Test(IsolatedAsyncioTestCase):
                         mf=0.0,
                         syba=float(row[3]),
                     ),
+                    None,
                 )
                 for row in reader
             ]

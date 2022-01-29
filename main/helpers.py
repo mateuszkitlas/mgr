@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import Optional, Tuple
 
 from .conda_app import CondaApp
 from .score import Score, Smiles
@@ -10,11 +11,12 @@ class _AppScorers:
         self.all: list[Score[float]] = []
         self.conda_app = CondaApp[str, RawScore](4001, "scorers", "scorers")
 
-    async def score(self, smiles: str) -> Smiles:
+    async def score(self, x: Tuple[str, Optional[int]]) -> Smiles:
+        smiles, transforms = x
         raw_score = await self.conda_app.fetch(smiles)
         times, score = Score.from_raw(raw_score)
         self.all.append(times)
-        return Smiles(smiles, score)
+        return Smiles(smiles, score, transforms)
 
     def print_stats(self, real_time: float):
         print(

@@ -8,16 +8,16 @@ from shared import Timer, project_dir, serve
 
 def serialize_state(state):
     in_stock_list = [mol in state.stock for mol in state.mols]
-    expandable_smiles = [
-        mol.smiles for mol, in_stock in zip(state.mols, in_stock_list) if not in_stock
+    expandable = [
+        (mol.smiles, mol.transform) for mol, in_stock in zip(state.mols, in_stock_list) if not in_stock
     ]
-    in_stock_smiles = [
-        mol.smiles for mol, in_stock in zip(state.mols, in_stock_list) if in_stock
+    in_stock = [
+        (mol.smiles, mol.transform) for mol, in_stock in zip(state.mols, in_stock_list) if in_stock
     ]
     return {
-        "score": state.score,
-        "expandable_smiles": expandable_smiles,
-        "in_stock_smiles": in_stock_smiles,
+        "ai_score": state.score,
+        "expandable": expandable,
+        "in_stock": in_stock,
     }
 
 

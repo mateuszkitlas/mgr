@@ -1,4 +1,4 @@
-from typing import Callable, Generic, Tuple, TypedDict, TypeVar
+from typing import Generic, Optional, Tuple, TypedDict, TypeVar
 
 from shared import Fn
 
@@ -26,24 +26,6 @@ class Score(Generic[T]):
         self.mf = mf
         self.syba = syba
 
-    def map_with(self, score: "Score[U]", fn: Callable[[T, U], R]) -> "Score[R]":
-        return Score[R](
-            sa=fn(self.sa, score.sa),
-            sc=fn(self.sc, score.sc),
-            ra=fn(self.ra, score.ra),
-            mf=fn(self.mf, score.mf),
-            syba=fn(self.syba, score.syba),
-        )
-
-    def map(self, fn: Callable[[T], R]) -> "Score[R]":
-        return Score[R](
-            sa=fn(self.sa),
-            sc=fn(self.sc),
-            ra=fn(self.ra),
-            syba=fn(self.syba),
-            mf=fn(self.mf),
-        )
-
     def __str__(self):
         return serialize_dict(self.json(), ",")
 
@@ -69,12 +51,6 @@ class Score(Generic[T]):
     @staticmethod
     def from_json(j: JsonScoreFloat):
         return Score(sa=j["sa"], sc=j["sc"], ra=j["ra"], syba=j["syba"], mf=j["mf"])
-
-    def to_list(self):
-        return [self.sa, self.sc, self.ra, self.mf, self.syba]
-
-    def add(self, s: "Score[T]", f: Callable[[T, T], T]) -> "Score[T]":
-        return self.map_with(s, f)
 
     @staticmethod
     def getters() -> list[Tuple[str, Fn["Score[U]", U]]]:
@@ -106,19 +82,21 @@ class Score(Generic[T]):
 class JsonSmiles(TypedDict):
     smiles: str
     score: JsonScoreFloat
+    transforms: Optional[int]
 
 
 class Smiles:
-    def __init__(self, smiles: str, score: Score[float]):
+    def __init__(self, smiles: str, score: Score[float], transforms: Optional[int]):
         self.smiles = smiles
         self.score = score
+        self.transforms = transforms
 
     def __str__(self):
-        return f"{self.score}, smiles: {self.smiles}"
+        return serialize_dict(self.json(), ", ")
 
     def json(self) -> JsonSmiles:
-        return {"smiles": self.smiles, "score": self.score.json()}
+        return {"smiles": self.smiles, "score": self.score.json(), "transforms": self.transforms}
 
     @staticmethod
     def from_json(j: JsonSmiles):
-        return Smiles(j["smiles"], Score.from_json(j["score"]))
+        return Smiles(j["smiles"], Score.from_json(j["score"]), j["transforms"])
