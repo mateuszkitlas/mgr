@@ -2,17 +2,19 @@ import os
 import sys
 from typing import Callable
 
-from shared import (Timer, disable_mf, disable_syba, paracetamol_smiles,
+from shared import (Fn, Timer, disable_mf, disable_syba, paracetamol_smiles,
                     project_dir, serve)
 
 # from .scscore_tensorflow import get_sc_scorer
+
+Scorer = Fn[str, float]
 
 
 def dummy_scorer(smiles: str):
     return 0.0
 
 
-def get_mf_scorer() -> Callable[[str], float]:
+def get_mf_scorer() -> Scorer:
     if disable_mf():
         return dummy_scorer
     else:
@@ -21,7 +23,7 @@ def get_mf_scorer() -> Callable[[str], float]:
         return score_smiles
 
 
-def get_sc_scorer() -> Callable[[str], float]:
+def get_sc_scorer() -> Scorer:
     from .scscore_numpy import SCScorer
 
     scscorer = SCScorer()
@@ -34,7 +36,7 @@ def get_sc_scorer() -> Callable[[str], float]:
     return sc_score
 
 
-def get_syba_scorer() -> Callable[[str], float]:
+def get_syba_scorer() -> Scorer:
     if disable_syba():
         return dummy_scorer
     else:
@@ -53,7 +55,7 @@ def get_syba_scorer() -> Callable[[str], float]:
 def get_ra_scorer(
     model: str,  # Literal["DNN", "XGB"],
     db: str,  # Literal["chembl", "gdbchembl", "gdbmedchem"]
-) -> Callable[[str], float]:
+) -> Scorer:
     dnn = model == "DNN"
     if dnn:
         from RAscore import RAscore_NN
@@ -74,7 +76,7 @@ def get_ra_scorer(
     return scorer
 
 
-def get_sa_scorer() -> Callable[[str], float]:
+def get_sa_scorer() -> Scorer:
     from rdkit import Chem
     from rdkit.Chem import RDConfig
 

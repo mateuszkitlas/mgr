@@ -1,8 +1,9 @@
 from typing import Callable, Generic, Tuple, TypedDict, TypeVar
 
-from .utils import serialize_dict
+from shared import Fn
 
 from .types import RawScore
+from .utils import serialize_dict
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -76,7 +77,7 @@ class Score(Generic[T]):
         return self.map_with(s, f)
 
     @staticmethod
-    def getters() -> list[Tuple[str, Callable[["Score[U]"], U]]]:
+    def getters() -> list[Tuple[str, Fn["Score[U]", U]]]:
         return [
             ("sa", lambda s: s.sa),
             ("sc", lambda s: s.sc),

@@ -14,6 +14,9 @@ project_dir = os.path.dirname(os.path.realpath(__file__))
 
 T = TypeVar("T")
 
+R = TypeVar("R")
+Fn = Callable[[T], R]
+
 paracetamol_smiles = "CC(=O)Nc1ccc(O)cc1"
 
 
@@ -38,7 +41,7 @@ class Timer:
         return self.delta
 
 
-def _serve(port: int, callback: Callable[[Any], Any]):
+def _serve(port: int, callback: Fn[Any, Any]):
     class S(BaseHTTPRequestHandler):
         def log_message(self, *args: Any):
             pass
@@ -69,7 +72,7 @@ def _serve(port: int, callback: Callable[[Any], Any]):
     httpd.serve_forever()
 
 
-def serve(callback: Callable[[Any], Any]):
+def serve(callback: Fn[Any, Any]):
     _serve(int(sys.argv[1]), callback)
 
 

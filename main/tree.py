@@ -1,14 +1,15 @@
 from asyncio import gather
 from itertools import chain
-from typing import (Awaitable, Callable, Iterable, Optional, TypedDict,
-                    TypeVar, Union)
+from typing import Awaitable, Iterable, Optional, TypedDict, TypeVar, Union
+
+from shared import Fn
 
 from .score import JsonSmiles, Smiles
 from .types import AiTree
 from .utils import flatten
 
 T = TypeVar("T")
-Scorer = Callable[[str], Awaitable[Smiles]]
+Scorer = Fn[str, Awaitable[Smiles]]
 
 
 class _Tree:

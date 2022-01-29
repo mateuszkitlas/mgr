@@ -2,7 +2,7 @@ import asyncio
 from typing import Callable
 from unittest import IsolatedAsyncioTestCase, main
 
-from shared import Timer, disable_mf, disable_syba
+from shared import Fn, Timer, disable_mf, disable_syba
 
 from .data import load_trees, paracetamol, read_csv, save_trees
 from .helpers import app_ai, app_scorers
@@ -21,9 +21,7 @@ class Test(IsolatedAsyncioTestCase):
 
             await Tree.from_ai(ai_tree, fake_scorer)
 
-    async def _test_scorers(
-        self, mols: list[Smiles], test_fn: Callable[[Score[float]], bool]
-    ):
+    async def _test_scorers(self, mols: list[Smiles], test_fn: Fn[Score[float], bool]):
         async with app_scorers() as scorer:
             real_time, smiles = await Timer.acalc(
                 asyncio.gather(*(scorer.score(m.smiles) for m in mols))
