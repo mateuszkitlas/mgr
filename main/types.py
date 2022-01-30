@@ -4,14 +4,6 @@ T = TypeVar("T")
 Timed = Tuple[float, T]
 
 
-class RawScore(TypedDict):
-    sa: Timed[float]
-    sc: Timed[float]
-    ra: Timed[float]
-    mf: Timed[float]
-    syba: Timed[float]
-
-
 class AiTree(TypedDict):
     is_solved: bool
     ai_score: float

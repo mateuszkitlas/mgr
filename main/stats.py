@@ -1,4 +1,5 @@
-from typing import Any, Tuple, TypeVar, Union
+import inspect
+from typing import Any, Optional, Tuple, TypeVar
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -6,7 +7,7 @@ from IPython.display import HTML, display
 
 from shared import Fn
 
-from .data import Mol, data, load_trees
+from .data import data, load_trees
 from .score import Score
 from .tree import Tree, TreeTypes
 from .utils import flatten, serialize_dict
@@ -20,153 +21,172 @@ def avg(l: list[float]):
     return sum(l) / len(l)
 
 
-def _span(txt: str, styles: dict[str, Union[str, int]]):
-    return f"<span style='{serialize_dict(styles, ';')}'>{txt}</span>"
+AggFn = Fn[list[float], float]
 
-
-_funs: list[Tuple[str, str, dict[str, Any], Fn[list[float], float]]] = [
+# name, color, scatter_kwargs, fn
+_agg: list[Tuple[str, str, dict[str, Any], AggFn]] = [
     ("min", "blue", {"marker": "o", "edgecolor": "blue", "facecolor": "none"}, min),
     ("max", "red", {"marker": "x", "color": "red"}, max),
     ("avg", "green", {"marker": "+", "color": "green"}, avg),
 ]
-_funs_names = ", ".join(
-    (_span(name, {"color": color}) for name, color, _2, _3 in _funs)
-)
 
-_score_getters = [*Score.getters(), ("ai", None)]
+ScoreGetter = Optional[Fn[Score, float]]
+_score_getters: list[Tuple[str, ScoreGetter]] = [*Score.getters(), ("ai", None)]
 
 
-def _pairs(node: Tree, type1: TreeTypes, type2: TreeTypes):
-    return (
-        (solvable, not_solvable)
-        for solvable in (c for c in node.children if c.type == type1)
-        for not_solvable in (c for c in node.children if not c.type == type2)
-    )
-
-
-def _unzip_pairs(l: list[Tuple[T, T]]):
+def _unzip(l: list[Tuple[T, T]]):
     return ([x for x, _ in l], [y for _, y in l])
 
 
-_score_names = ", ".join((name for name, _ in _score_getters))
+def _all_nodes(roots: list[Tree]):
+    return flatten((root.all_nodes() for root in roots))
 
 
-def _pairs_desc(point_desc: str, x_desc: str, y_desc: str):
-    return f"""
-{_span("source, stat_fn, score", {"font-family": "monospace"})} - displayed on figure
-<pre>
-for every node in source:
-  for every (x,y) in node.children:
-    where
-      x = {x_desc}, represended on x-axis
-      y = {y_desc}, represented on y-axis
-    for score in [{_score_names}]:
-      # if score==ai: avg == min == max
-      for stat_fn in [{_funs_names}]:
-        point = {point_desc}
-        where
-          fun(node) = stat_fn([score(mol) for mol in node.expandable])
-          node.expandable are not solved molecules (not available in stock)
-</pre>
-"""
-
-
-def _scatter_pairs_for_roots(roots: list[Tree], source: str):
-    all_nodes = flatten((root.all_nodes() for root in roots))
-    points = list(
-        flatten((_pairs(node, "internal", "not_solved") for node in all_nodes))
-    )
-    if points:
-        fig, axs = plt.subplots(nrows=3, ncols=2)
-        fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.94)
-        fig.set_dpi(220)
-        fig.set_figheight(7)
-        fig.suptitle(f"source={source}")
-        for _1, _2, kwargs, stat_fn in _funs:
-            xs, ys = _unzip_pairs(points)
-
-            for (score_name, getter), ax in zip(_score_getters, axs.flat):
-
-                def stat(t: Tree) -> float:
-                    if getter:
-                        return stat_fn([getter(s.score) for s in t.expandable])
-                    else:
-                        return t.ai_score
-
-                x, y = [stat(x) for x in xs], [stat(y) for y in ys]
-                ax.set_title(f"score={score_name}")
-                ax.scatter(x, y, s=4, linewidths=1, **kwargs)
-                ax.ticklabel_format(style="plain")
-        plt.show()
-    else:
-        display(HTML(f"too little data in source={source}"))
-
-
-def scatter_pairs(mols: list[Tuple[Mol, Tree]]):
-    display(
-        HTML(_pairs_desc("(f(x), f(y))", "solvable inner node", "not solvable node"))
-    )
-    solvable_mols = len([root for _, root in mols if root.type == "internal"])
-    _scatter_pairs_for_roots(
-        [root for _, root in mols], f"all ({solvable_mols} solvable mols)"
-    )
-    for mol, root in mols:
-        _scatter_pairs_for_roots(
-            [root], f"{mol.name}; {serialize_dict(root.stats, ', ')}"
+def _pairs(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeTypes]):
+    def pair_children(node: Tree):
+        return (
+            (x, y)
+            for x in node.children
+            if x.type in xtype
+            for y in node.children
+            if y.type in ytype
         )
 
+    return list(flatten((pair_children(node) for node in _all_nodes(roots))))
 
-def _histogram_pairs_for_roots(roots: list[Tree], source: str):
-    all_nodes = flatten((root.all_nodes() for root in roots))
-    points = list(
-        flatten((_pairs(node, "internal", "not_solved") for node in all_nodes))
-    )
-    if points:
+
+def _print(data: dict[str, Any]):
+    serialized = serialize_dict(data, "\n")
+    display(HTML(f"<pre>{serialized}</pre>"))
+
+
+def _ax6(title: dict[str, Any], has_data: bool):
+    if has_data:
+        _print(title)
         fig, axs = plt.subplots(nrows=3, ncols=2)
         fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.94)
         fig.set_dpi(220)
         fig.set_figheight(7)
-        fig.suptitle(f"source={source}")
+        # fig.suptitle(_title)
         for (score_name, getter), ax in zip(_score_getters, axs.flat):
-
-            def stat(t: Tree, stat_fn: Fn[list[float], float]) -> float:
-                if getter:
-                    return stat_fn([getter(s.score) for s in t.expandable])
-                else:
-                    return t.ai_score
-
             ax.set_title(f"score={score_name}")
-            ax.hist(
-                x=[
-                    [stat(x, stat_fn) - stat(y, stat_fn) for x, y in points]
-                    for _1, _2, _3, stat_fn in _funs
-                ],
-                color=[color for _1, color, _2, _3 in _funs],
-            )
             ax.ticklabel_format(style="plain")
+            yield (getter, ax)
         plt.show()
     else:
-        display(HTML(f"too little data in source={source}"))
+        _print({"error": "too little data", **title})
 
 
-def histogram_pairs(mols: list[Tuple[Mol, Tree]]):
-    display(
-        HTML(_pairs_desc("f(x) - f(y)", "solvable inner node", "not solvable node"))
-    )
-    solvable_mols = len([root for _, root in mols if root.type == "internal"])
-    _histogram_pairs_for_roots(
-        [root for _, root in mols], f"all ({solvable_mols} solvable mols)"
-    )
-    for mol, root in mols:
-        _histogram_pairs_for_roots(
-            [root], f"{mol.name}; {serialize_dict(root.stats, ', ')}"
-        )
-
-
-def main(fn: Fn[list[Tuple[Mol, Tree]], None]):
+def _main(detailed: bool):
     mol_by_smiles = {mol.smiles: mol for mol in data()}
     mols = [
         (mol_by_smiles[smiles], Tree(json_tree))
         for (smiles, json_tree) in load_trees("trees.json")
     ]
-    fn(mols)
+    solved_count = sum((1 for _, root in mols if root.type == "internal"))
+    yield ([root for _, root in mols], f"all ({solved_count} solved)")
+    if detailed:
+        for mol, root in mols:
+            yield ([root], f"{mol.name}; {serialize_dict(root.stats, ', ')}")
+
+
+def _tree_to_float(
+    tree: Tree,
+    tree_to_scores: Fn[Tree, list[Score]],
+    getter: ScoreGetter,
+    agg_fn: AggFn,
+) -> float:
+    if getter:
+        return agg_fn([getter(score) for score in tree_to_scores(tree)])
+    else:
+        return tree.ai_score
+
+
+def scatter_pairs(
+    xtype: list[TreeTypes],
+    ytype: list[TreeTypes],
+    tree_to_scores: Fn[Tree, list[Score]],
+    detailed: bool,
+):
+    for roots, source in _main(detailed):
+        xs, ys = _unzip(_pairs(roots, xtype, ytype))
+        title = {
+            "source": source,
+            "xtype": xtype,
+            "ytype": ytype,
+            "tree_to_scores": inspect.getsource(tree_to_scores),
+        }
+        for getter, ax in _ax6(title, bool(xs)):
+            for _1, _2, agg_scatter_kwargs, agg_fn in _agg:
+
+                def stat(t: Tree):
+                    return _tree_to_float(t, tree_to_scores, getter, agg_fn)
+
+                x, y = [stat(x) for x in xs], [stat(y) for y in ys]
+                ax.scatter(x, y, s=4, linewidths=1, **agg_scatter_kwargs)
+
+
+def histogram_pairs(
+    xtype: list[TreeTypes],
+    ytype: list[TreeTypes],
+    tree_to_scores: Fn[Tree, list[Score]],
+    detailed: bool,
+):
+    for roots, source in _main(detailed):
+        pairs = _pairs(roots, xtype, ytype)
+        title = {
+            "source": source,
+            "xtype": xtype,
+            "ytype": ytype,
+            "tree_to_scores": inspect.getsource(tree_to_scores),
+        }
+        for getter, ax in _ax6(title, bool(pairs)):
+
+            def stat(t: Tree, agg_fn: AggFn) -> float:
+                return _tree_to_float(t, tree_to_scores, getter, agg_fn)
+
+            ax.hist(
+                x=[
+                    [stat(x, agg_fn) - stat(y, agg_fn) for x, y in pairs]
+                    for _1, _2, _3, agg_fn in _agg
+                ],
+                color=[agg_color for _1, agg_color, _2, _3 in _agg],
+            )
+
+
+def boxplot_scores(
+    ltype: list[TreeTypes],
+    rtype: list[TreeTypes],
+    tree_to_scores: Fn[Tree, list[Score]],
+    detailed: bool,
+):
+    for roots, source in _main(detailed):
+        xs = [node for node in _all_nodes(roots) if node.type in ltype]
+        ys = [node for node in _all_nodes(roots) if node.type in rtype]
+        title = {
+            "source": source,
+            "ltype": ltype,
+            "rtype": rtype,
+            "tree_to_scores": inspect.getsource(tree_to_scores),
+        }
+        for getter, ax in _ax6(title, bool(xs) and bool(ys)):
+            for i, (agg_name, agg_color, _3, agg_fn) in enumerate(_agg):
+
+                def stat(t: Tree) -> float:
+                    return _tree_to_float(t, tree_to_scores, getter, agg_fn)
+
+                x, y = [stat(x) for x in xs], [stat(y) for y in ys]
+
+                def label(sublabel: str):
+                    return agg_name + (f"\n{sublabel}" if i == 1 else "")
+
+                ax.boxplot(
+                    [x, y],
+                    labels=[label(str(ltype)), label(str(rtype))],
+                    positions=[i, i + len(_agg)],
+                    boxprops=dict(color=agg_color),
+                    capprops=dict(color=agg_color),
+                    whiskerprops=dict(color=agg_color),
+                    flierprops=dict(color=agg_color, markeredgecolor=agg_color),
+                    medianprops=dict(color=agg_color),
+                )

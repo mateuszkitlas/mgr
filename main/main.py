@@ -1,6 +1,8 @@
 from asyncio import run
 from typing import Tuple
 
+from shared import Timer
+
 from .data import data, load_trees, save_trees
 from .helpers import app_ai, app_scorers
 from .tree import JsonTree, Tree
@@ -15,7 +17,8 @@ async def main():
             print(f"{i}/{len(mols)}")
             if mol.smiles not in done:
                 ai_tree = await ai.tree(mol.smiles)
-                tree = await Tree.from_ai(ai_tree, scorer.score)
+                real_time, tree = await Timer.acalc(Tree.from_ai(ai_tree, scorer.score))
+                scorer.add_real_time(real_time)
                 trees.append((mol.smiles, tree.json()))
                 save_trees(trees, "trees.json")
 

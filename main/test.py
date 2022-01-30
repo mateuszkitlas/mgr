@@ -14,23 +14,22 @@ class Test(IsolatedAsyncioTestCase):
     async def test_ai(self):
         async with app_ai() as ai:
             ai_tree = await ai.tree(paracetamol.smiles)
-            ai.print_stats()
 
             async def fake_scorer(x: Tuple[str, Optional[int]]):
                 smiles, transforms = x
-                return Smiles(smiles, Score[float](0.0, 0.0, 0.0, 0.0, 0.0), transforms)
+                return Smiles(smiles, Score(0.0, 0.0, 0.0, 0.0, 0.0), transforms)
 
             await Tree.from_ai(ai_tree, fake_scorer)
 
-    async def _test_scorers(self, mols: list[Smiles], test_fn: Fn[Score[float], bool]):
+    async def _test_scorers(self, mols: list[Smiles], test_fn: Fn[Score, bool]):
         async with app_scorers() as scorer:
             real_time, smiles = await Timer.acalc(
                 asyncio.gather(*(scorer.score((m.smiles, m.transforms)) for m in mols))
             )
-            scorer.print_stats(real_time)
+            scorer.add_real_time(real_time)
             failed: list[str] = []
             for test_mol, smiles in zip(mols, smiles):
-                diff = Score[float](
+                diff = Score(
                     sa=abs(test_mol.score.sa - smiles.score.sa),
                     sc=abs(test_mol.score.sc - smiles.score.sc),
                     ra=abs(test_mol.score.ra - smiles.score.ra),
@@ -48,7 +47,7 @@ class Test(IsolatedAsyncioTestCase):
         if disable_mf():
             self.skipTest("DISABLE_MF")
 
-        def test_fn(diff: Score[float]):
+        def test_fn(diff: Score):
             return diff.mf > 0.0001
 
         aspirin = Smiles(
@@ -83,7 +82,7 @@ class Test(IsolatedAsyncioTestCase):
                 for row in reader
             ]
 
-        def test_fn(diff: Score[float]):
+        def test_fn(diff: Score):
             return (
                 diff.sa > 0.0001
                 or diff.sc > 0.0001
@@ -97,6 +96,7 @@ class Test(IsolatedAsyncioTestCase):
         async with app_ai() as ai, app_scorers() as scorer:
             ai_tree = await ai.tree(paracetamol.smiles)
             real_time, tree = await Timer.acalc(Tree.from_ai(ai_tree, scorer.score))
+            scorer.add_real_time(real_time)
             save_trees([(paracetamol.smiles, tree.json())], "test_all.json")
             loaded_tree = Tree(load_trees("test_all.json")[0][1])
             self.assertEqual(

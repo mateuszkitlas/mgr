@@ -1,16 +1,11 @@
-from typing import Generic, Optional, Tuple, TypedDict, TypeVar
+from typing import Optional, Tuple, TypedDict
 
 from shared import Fn
 
-from .types import RawScore
 from .utils import serialize_dict
 
-T = TypeVar("T")
-U = TypeVar("U")
-R = TypeVar("R")
 
-
-class JsonScoreFloat(TypedDict):
+class JsonScore(TypedDict):
     sa: float
     sc: float
     ra: float
@@ -18,8 +13,8 @@ class JsonScoreFloat(TypedDict):
     syba: float
 
 
-class Score(Generic[T]):
-    def __init__(self, sa: T, sc: T, ra: T, mf: T, syba: T):
+class Score:
+    def __init__(self, sa: float, sc: float, ra: float, mf: float, syba: float):
         self.sa = sa
         self.sc = sc
         self.ra = ra
@@ -30,30 +25,11 @@ class Score(Generic[T]):
         return serialize_dict(self.json(), ",")
 
     @staticmethod
-    def from_raw(r: RawScore) -> Tuple["Score[float]", "Score[float]"]:
-        return (
-            Score(
-                sa=r["sa"][0],
-                sc=r["sc"][0],
-                ra=r["ra"][0],
-                syba=r["syba"][0],
-                mf=r["mf"][0],
-            ),
-            Score(
-                sa=r["sa"][1],
-                sc=r["sc"][1],
-                ra=r["ra"][1],
-                syba=r["syba"][1],
-                mf=r["mf"][1],
-            ),
-        )
-
-    @staticmethod
-    def from_json(j: JsonScoreFloat):
+    def from_json(j: JsonScore):
         return Score(sa=j["sa"], sc=j["sc"], ra=j["ra"], syba=j["syba"], mf=j["mf"])
 
     @staticmethod
-    def getters() -> list[Tuple[str, Fn["Score[U]", U]]]:
+    def getters() -> list[Tuple[str, Fn["Score", float]]]:
         return [
             ("sa", lambda s: s.sa),
             ("sc", lambda s: s.sc),
@@ -62,14 +38,7 @@ class Score(Generic[T]):
             ("syba", lambda s: s.syba),
         ]
 
-    def json(self) -> JsonScoreFloat:
-        assert (
-            isinstance(self.sa, float)
-            and isinstance(self.sc, float)
-            and isinstance(self.ra, float)
-            and isinstance(self.mf, float)
-            and isinstance(self.syba, float)
-        )
+    def json(self) -> JsonScore:
         return {
             "sa": self.sa,
             "sc": self.sc,
@@ -81,12 +50,12 @@ class Score(Generic[T]):
 
 class JsonSmiles(TypedDict):
     smiles: str
-    score: JsonScoreFloat
+    score: JsonScore
     transforms: Optional[int]
 
 
 class Smiles:
-    def __init__(self, smiles: str, score: Score[float], transforms: Optional[int]):
+    def __init__(self, smiles: str, score: Score, transforms: Optional[int]):
         self.smiles = smiles
         self.score = score
         self.transforms = transforms

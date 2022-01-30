@@ -102,6 +102,12 @@ class Tree:
             self.ai_score = t["ai_score"]
             self.children = [Tree(c) for c in t["children"]]
             self.type = t["type"]
+        assert (
+            (self.type == "solved" and (not self.expandable) and self.in_stock)
+            or (self.type == "not_solved" and self.expandable)
+            or (self.type == "internal" and self.expandable)
+        )
+        assert self.expandable or self.in_stock
 
     def all_nodes(self) -> Iterable["Tree"]:
         return chain([self], flatten((c.all_nodes() for c in self.children)))
