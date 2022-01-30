@@ -1,6 +1,5 @@
 import os
 import sys
-from typing import Callable
 
 from shared import (Fn, Timer, disable_mf, disable_syba, paracetamol_smiles,
                     project_dir, serve)
@@ -10,7 +9,7 @@ from shared import (Fn, Timer, disable_mf, disable_syba, paracetamol_smiles,
 Scorer = Fn[str, float]
 
 
-def dummy_scorer(smiles: str):
+def dummy_scorer(_smiles: str):
     return 0.0
 
 
