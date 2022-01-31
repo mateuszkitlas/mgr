@@ -9,3 +9,7 @@ def flatten(l: Iterable[Iterable[T]]) -> Iterable[T]:
 
 def serialize_dict(d: Union[dict[str, Any], TypedDict], sep: str):
     return sep.join([f"{k}: {v}" for k, v in d.items()])
+
+
+def human_json(d: Union[dict[str, Any], TypedDict]):
+    return "{" + serialize_dict(d, ", ") + "}"

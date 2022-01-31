@@ -9,8 +9,9 @@ from shared import Fn
 
 from .data import data, load_trees
 from .score import Score
-from .tree import Tree, TreeTypes
+from .tree import Tree, TreeTypes, sum_tree_stats
 from .utils import flatten, serialize_dict
+import json
 
 matplotlib.rc("font", size=5)
 
@@ -77,17 +78,25 @@ def _ax6(title: dict[str, Any], has_data: bool):
         _print({"error": "too little data", **title})
 
 
-def _main(detailed: bool):
+def _data(detailed: bool):
     mol_by_smiles = {mol.smiles: mol for mol in data()}
     mols = [
         (mol_by_smiles[smiles], Tree(json_tree))
         for (smiles, json_tree) in load_trees("trees.json")
     ]
-    solved_count = sum((1 for _, root in mols if root.type == "internal"))
-    yield ([root for _, root in mols], f"all ({solved_count} solved)")
+    solved_count = sum((root.type == "internal" for _, root in mols))
+    not_solved_count = sum((root.type == "not_solved" for _, root in mols))
+    all_count = len(mols)
+    assert sum((root.type == "solved" for _, root in mols)) == 0
+    assert (solved_count + not_solved_count) == all_count
+    sum_stats = sum_tree_stats([root.stats() for _, root in mols])
+    yield (
+        [root for _, root in mols],
+        f"ALL ({solved_count}/{all_count} solved); {json.dumps(sum_stats, indent=2)}",
+    )
     if detailed:
         for mol, root in mols:
-            yield ([root], f"{mol.name}; {serialize_dict(root.stats, ', ')}")
+            yield ([root], f"{mol.name}; {json.dumps(root.stats(), indent=2)}")
 
 
 def _tree_to_float(
@@ -108,7 +117,7 @@ def scatter_pairs(
     tree_to_scores: Fn[Tree, list[Score]],
     detailed: bool,
 ):
-    for roots, source in _main(detailed):
+    for roots, source in _data(detailed):
         xs, ys = _unzip(_pairs(roots, xtype, ytype))
         title = {
             "source": source,
@@ -132,7 +141,7 @@ def histogram_pairs(
     tree_to_scores: Fn[Tree, list[Score]],
     detailed: bool,
 ):
-    for roots, source in _main(detailed):
+    for roots, source in _data(detailed):
         pairs = _pairs(roots, xtype, ytype)
         title = {
             "source": source,
@@ -160,7 +169,7 @@ def boxplot_scores(
     tree_to_scores: Fn[Tree, list[Score]],
     detailed: bool,
 ):
-    for roots, source in _main(detailed):
+    for roots, source in _data(detailed):
         xs = [node for node in _all_nodes(roots) if node.type in ltype]
         ys = [node for node in _all_nodes(roots) if node.type in rtype]
         title = {

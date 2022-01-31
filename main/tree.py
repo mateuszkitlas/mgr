@@ -1,5 +1,4 @@
 from asyncio import gather
-from functools import cached_property
 from itertools import chain
 from typing import (Awaitable, Iterable, Literal, Optional, Tuple, TypedDict,
                     TypeVar, Union)
@@ -71,6 +70,29 @@ class _Tree:
         await gather(*(t._assign_scores(f) for t in self.all_nodes()))
 
 
+class NodeStats(TypedDict):
+    count: int
+    expandable_smiles: int
+    in_stock_smiles: int
+
+TreeStats = dict[TreeTypes, NodeStats]
+
+def sum_node_stats(l: list[NodeStats]) -> NodeStats:
+    return {
+        "expandable_smiles": sum((e["expandable_smiles"] for e in l)),
+        "in_stock_smiles": sum((e["in_stock_smiles"] for e in l)),
+        "count": sum((e["count"] for e in l)),
+    }
+
+
+def sum_tree_stats(l: list[TreeStats]) -> TreeStats:
+    return {
+        "internal": sum_node_stats([e["internal"] for e in l]),
+        "solved": sum_node_stats([e["solved"] for e in l]),
+        "not_solved": sum_node_stats([e["not_solved"] for e in l]),
+    }
+
+
 class JsonTree(TypedDict):
     expandable: list[JsonSmiles]
     in_stock: list[JsonSmiles]
@@ -121,9 +143,18 @@ class Tree:
             "type": self.type,
         }
 
-    @cached_property
-    def stats(self):
-        x: dict[TreeTypes, int] = {"solved": 0, "not_solved": 0, "internal": 0}
-        for node in self.all_nodes():
-            x[node.type] += 1
-        return x
+    def stats(self) -> TreeStats:
+        internal = [n for n in self.all_nodes() if n.type == "internal"]
+        solved = [n for n in self.all_nodes() if n.type == "solved"]
+        not_solved = [n for n in self.all_nodes() if n.type == "not_solved"]
+        def node_stats(nodes: list[Tree]) -> NodeStats:
+            return {
+                "count": len(nodes),
+                "expandable_smiles": sum((len(n.expandable) for n in nodes)),
+                "in_stock_smiles": sum((len(n.in_stock) for n in nodes))
+            }
+        return {
+            "internal": node_stats(internal),
+            "solved": node_stats(solved),
+            "not_solved": node_stats(not_solved),
+        }
