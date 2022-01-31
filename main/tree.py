@@ -75,7 +75,9 @@ class NodeStats(TypedDict):
     expandable_smiles: int
     in_stock_smiles: int
 
+
 TreeStats = dict[TreeTypes, NodeStats]
+
 
 def sum_node_stats(l: list[NodeStats]) -> NodeStats:
     return {
@@ -147,12 +149,14 @@ class Tree:
         internal = [n for n in self.all_nodes() if n.type == "internal"]
         solved = [n for n in self.all_nodes() if n.type == "solved"]
         not_solved = [n for n in self.all_nodes() if n.type == "not_solved"]
+
         def node_stats(nodes: list[Tree]) -> NodeStats:
             return {
                 "count": len(nodes),
                 "expandable_smiles": sum((len(n.expandable) for n in nodes)),
-                "in_stock_smiles": sum((len(n.in_stock) for n in nodes))
+                "in_stock_smiles": sum((len(n.in_stock) for n in nodes)),
             }
+
         return {
             "internal": node_stats(internal),
             "solved": node_stats(solved),

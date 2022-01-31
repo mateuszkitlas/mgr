@@ -1,4 +1,5 @@
 import inspect
+import json
 from typing import Any, Optional, Tuple, TypeVar
 
 import matplotlib
@@ -11,7 +12,6 @@ from .data import data, load_trees
 from .score import Score
 from .tree import Tree, TreeTypes, sum_tree_stats
 from .utils import flatten, serialize_dict
-import json
 
 matplotlib.rc("font", size=5)
 
