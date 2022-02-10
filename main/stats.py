@@ -214,9 +214,10 @@ def histogram_pairs_siblings(
                 _hist(
                     ax,
                     [stat(x) - stat(y) for x, y in pairs],
-                    16 if score_name == "mf" else 10,
+                    40,  #16 if score_name == "mf" else 10,
                     agg_color,
                 )
+                # np.linspace(from, to, step)
 
 
 def histogram_pairs_parent_child(
@@ -250,7 +251,7 @@ def histogram_pairs_parent_child(
                 _hist(
                     ax,
                     [stat(x) - stat(y) for x, y in pairs],
-                    16 if score_name == "mf" else 10,
+                    40, #16 if score_name == "mf" else 10,
                     agg_color,
                 )
 

@@ -17,4 +17,4 @@ TODO
 - {Melphalan, cytenamide, } czemu nie ma wyników, skoro solved > 0
 - średio jak due jest drzewo poraki
 - matplotlib kolory dla daltonistów
-- scatter - ręcznie wywalic ałtlajery (mf)
+- {scatter, histogram} - ręcznie wywalic ałtlajery (mf)
