@@ -5,6 +5,7 @@ from typing import Any, Optional, Tuple, TypeVar
 import matplotlib
 import matplotlib.pyplot as plt
 from IPython.display import HTML, display
+from scipy.stats import spearmanr
 
 from shared import Fn
 
@@ -25,10 +26,10 @@ def avg(l: list[float]):
 AggFn = Fn[list[float], float]
 
 # name, color, scatter_kwargs, fn
-_agg: list[Tuple[str, str, dict[str, Any], AggFn]] = [
-    ("min", "blue", {"marker": "o", "edgecolor": "blue", "facecolor": "none"}, min),
-    ("max", "red", {"marker": "x", "color": "red"}, max),
-    ("avg", "green", {"marker": "+", "color": "green"}, avg),
+_agg: list[Tuple[str, str, AggFn]] = [
+    ("min", "blue", min),
+    ("max", "red", max),
+    ("avg", "green", avg),
 ]
 
 ScoreGetter = Optional[Fn[Score, float]]
@@ -43,8 +44,8 @@ def _all_nodes(roots: list[Tree]):
     return flatten((root.all_nodes() for root in roots))
 
 
-def _pairs(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeTypes]):
-    def pair_children(node: Tree):
+def _pairs_siblings(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeTypes]):
+    def pair(node: Tree):
         return (
             (x, y)
             for x in node.children
@@ -53,7 +54,20 @@ def _pairs(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeTypes]):
             if y.type in ytype
         )
 
-    return list(flatten((pair_children(node) for node in _all_nodes(roots))))
+    return list(flatten((pair(node) for node in _all_nodes(roots))))
+
+
+def _pairs_parent_child(
+    roots: list[Tree], parenttype: list[TreeTypes], childtype: list[TreeTypes]
+):
+    def pair(p: Tree):
+        return ((p, c) for c in p.children if c.type in childtype)
+
+    return list(
+        flatten(
+            (pair(parent) for parent in _all_nodes(roots) if parent.type in parenttype)
+        )
+    )
 
 
 def _print(data: dict[str, Any]):
@@ -72,7 +86,7 @@ def _ax6(title: dict[str, Any], has_data: bool):
         for (score_name, getter), ax in zip(_score_getters, axs.flat):
             ax.set_title(f"score={score_name}")
             ax.ticklabel_format(style="plain")
-            yield (getter, ax)
+            yield (score_name, getter, ax)
         plt.show()
     else:
         _print({"error": "too little data", **title})
@@ -118,49 +132,85 @@ def scatter_pairs(
     detailed: bool,
 ):
     for roots, source in _data(detailed):
-        xs, ys = _unzip(_pairs(roots, xtype, ytype))
+        xs, ys = _unzip(_pairs_siblings(roots, xtype, ytype))
         title = {
             "source": source,
             "xtype": xtype,
             "ytype": ytype,
             "tree_to_scores": inspect.getsource(tree_to_scores),
         }
-        for getter, ax in _ax6(title, bool(xs)):
-            for _1, _2, agg_scatter_kwargs, agg_fn in _agg:
+        for _1, agg_color, agg_fn in _agg:
+            for score_name, getter, ax in _ax6(title, bool(xs)):
+                ax.axes.set_aspect("equal")
 
                 def stat(t: Tree):
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
                 x, y = [stat(x) for x in xs], [stat(y) for y in ys]
-                ax.scatter(x, y, s=4, linewidths=1, **agg_scatter_kwargs)
+                rho, pval = spearmanr(x, y)
+                info = {
+                    "score": score_name,
+                    "spearmanr-rho": rho,
+                    "speaarmanr-pval": pval,
+                }
+                ax.set_title(serialize_dict(info, ", "))
+                ax.scatter(x, y, s=4, linewidths=1, color=agg_color)
 
 
-def histogram_pairs(
+def histogram_pairs_siblings(
     xtype: list[TreeTypes],
     ytype: list[TreeTypes],
     tree_to_scores: Fn[Tree, list[Score]],
     detailed: bool,
 ):
     for roots, source in _data(detailed):
-        pairs = _pairs(roots, xtype, ytype)
+        pairs = _pairs_siblings(roots, xtype, ytype)
         title = {
             "source": source,
             "xtype": xtype,
             "ytype": ytype,
             "tree_to_scores": inspect.getsource(tree_to_scores),
+            "description:": "f(xtype) - f(ytype)",
         }
-        for getter, ax in _ax6(title, bool(pairs)):
+        for _, agg_color, agg_fn in _agg:
+            for score_name, getter, ax in _ax6(title, bool(pairs)):
 
-            def stat(t: Tree, agg_fn: AggFn) -> float:
-                return _tree_to_float(t, tree_to_scores, getter, agg_fn)
+                def stat(t: Tree) -> float:
+                    return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
-            ax.hist(
-                x=[
-                    [stat(x, agg_fn) - stat(y, agg_fn) for x, y in pairs]
-                    for _1, _2, _3, agg_fn in _agg
-                ],
-                color=[agg_color for _1, agg_color, _2, _3 in _agg],
-            )
+                ax.hist(
+                    x=[[stat(x) - stat(y) for x, y in pairs]],
+                    color=[agg_color],
+                    bins=16 if score_name == "mf" else 10,
+                )
+
+
+def histogram_pairs_parent_child(
+    parenttype: list[TreeTypes],
+    childtype: list[TreeTypes],
+    tree_to_scores: Fn[Tree, list[Score]],
+    detailed: bool,
+):
+    for roots, source in _data(detailed):
+        pairs = _pairs_parent_child(roots, parenttype, childtype)
+        title = {
+            "source": source,
+            "parenttype": parenttype,
+            "childtype": childtype,
+            "tree_to_scores": inspect.getsource(tree_to_scores),
+            "description:": "f(parenttype) - f(childtype)",
+        }
+        for _, agg_color, agg_fn in _agg:
+            for score_name, getter, ax in _ax6(title, bool(pairs)):
+
+                def stat(t: Tree) -> float:
+                    return _tree_to_float(t, tree_to_scores, getter, agg_fn)
+
+                ax.hist(
+                    x=[[stat(x) - stat(y) for x, y in pairs]],
+                    color=[agg_color],
+                    bins=16 if score_name == "mf" else 10,
+                )
 
 
 def boxplot_scores(
@@ -178,8 +228,8 @@ def boxplot_scores(
             "rtype": rtype,
             "tree_to_scores": inspect.getsource(tree_to_scores),
         }
-        for getter, ax in _ax6(title, bool(xs) and bool(ys)):
-            for i, (agg_name, agg_color, _3, agg_fn) in enumerate(_agg):
+        for _, getter, ax in _ax6(title, bool(xs) and bool(ys)):
+            for i, (agg_name, agg_color, agg_fn) in enumerate(_agg):
 
                 def stat(t: Tree) -> float:
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)

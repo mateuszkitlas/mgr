@@ -5,3 +5,4 @@ dependencies:
   - isort
   - matplotlib
   - ipykernel
+  - scikit-learn

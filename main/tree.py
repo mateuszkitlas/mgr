@@ -15,36 +15,19 @@ TreeTypes = Literal["solved", "not_solved", "internal"]
 
 
 class _Tree:
-    """
-    Turns nodes like this:
-    ```py
-    AiTree(is_solved=False, children=[
-        AiTree(is_solved=False),
-        AiTree(is_solved=False),
-        AiTree(is_solved=False),
-    ])
-    ```
-    To one node:
-    ```py
-    _Tree(type="not_solved", children=[])
-    ```
-    """
-
     def __init__(self, ai: AiTree):
         solved = ai["is_solved"]
         self.ai_score = ai["ai_score"]
         self._expandable = ai["expandable"]
         self._in_stock = ai["in_stock"]
-        true_children = [c for c in ai["children"] if c]
+        self.children = [_Tree(c) for c in ai["children"] if c]
         if solved:
-            assert not true_children
-        compressed_children = [_Tree(c) for c in true_children]
+            assert not self.children
         solvable = solved or any(
-            c for c in compressed_children if c.type in ("solved", "internal")
+            c for c in self.children if c.type in ("solved", "internal")
         )
-        self.children = compressed_children if solvable else []
-        self.type: TreeTypes = "solved" if solved else (
-            "internal" if solvable else "not_solved"
+        self.type: TreeTypes = (
+            "solved" if solved else ("internal" if solvable else "not_solved")
         )
         assert (
             (self.type == "solved" and (not self._expandable) and self._in_stock)
@@ -53,6 +36,18 @@ class _Tree:
         )
         self.expandable: Optional[list[Smiles]] = None
         self.in_stock: Optional[list[Smiles]] = None
+        self.not_solved_depth: Optional[int] = None
+
+    def _assign_not_solved_depth(self, ancestor_not_solved_depth: int):
+        if self.type in ["solved", "internal"]:
+            self.not_solved_depth = -1
+        else:
+            self.not_solved_depth = ancestor_not_solved_depth + 1
+        for c in self.children:
+            c._assign_not_solved_depth(self.not_solved_depth)
+
+    def assign_not_solved_depth(self):
+        self._assign_not_solved_depth(-1)
 
     async def _assign_scores(self, f: Scorer):
         assert self.expandable is None
@@ -72,26 +67,42 @@ class _Tree:
 
 class NodeStats(TypedDict):
     count: int
-    expandable_smiles: int
-    in_stock_smiles: int
+    expandable: int
+    in_stock: int
 
 
-TreeStats = dict[TreeTypes, NodeStats]
+class TreeStats(TypedDict):
+    internal: NodeStats
+    solved: NodeStats
+    not_solved: dict[int, NodeStats]
 
 
-def sum_node_stats(l: list[NodeStats]) -> NodeStats:
+zero_node_stats: NodeStats = {
+    "expandable": 0,
+    "in_stock": 0,
+    "count": 0,
+}
+
+
+def _sum_node_stats(l: list[NodeStats]) -> NodeStats:
     return {
-        "expandable_smiles": sum((e["expandable_smiles"] for e in l)),
-        "in_stock_smiles": sum((e["in_stock_smiles"] for e in l)),
+        "expandable": sum((e["expandable"] for e in l)),
+        "in_stock": sum((e["in_stock"] for e in l)),
         "count": sum((e["count"] for e in l)),
     }
 
 
 def sum_tree_stats(l: list[TreeStats]) -> TreeStats:
+    max_depth = max(flatten(e["not_solved"].keys() for e in l))
     return {
-        "internal": sum_node_stats([e["internal"] for e in l]),
-        "solved": sum_node_stats([e["solved"] for e in l]),
-        "not_solved": sum_node_stats([e["not_solved"] for e in l]),
+        "internal": _sum_node_stats([e["internal"] for e in l]),
+        "solved": _sum_node_stats([e["solved"] for e in l]),
+        "not_solved": {
+            depth: _sum_node_stats(
+                [e["not_solved"].get(depth, zero_node_stats) for e in l]
+            )
+            for depth in range(max_depth + 1)
+        },
     }
 
 
@@ -101,12 +112,14 @@ class JsonTree(TypedDict):
     ai_score: float
     children: list["JsonTree"]
     type: TreeTypes
+    not_solved_depth: int
 
 
 class Tree:
     @staticmethod
     async def from_ai(ai_tree: AiTree, f: Scorer):
         _tree = _Tree(ai_tree)
+        _tree.assign_not_solved_depth()
         await _tree.assign_scores_rec(f)
         return Tree(_tree)
 
@@ -115,19 +128,27 @@ class Tree:
         if isinstance(t, _Tree):
             assert t.expandable is not None
             assert t.in_stock is not None
+            assert t.not_solved_depth is not None
             self.expandable = t.expandable
             self.in_stock = t.in_stock
             self.ai_score = t.ai_score
             self.children = [Tree(c) for c in t.children]
             self.type = t.type
+            self.not_solved_depth = t.not_solved_depth
         else:
             self.expandable = [Smiles.from_json(s) for s in t["expandable"]]
             self.in_stock = [Smiles.from_json(s) for s in t["in_stock"]]
             self.ai_score = t["ai_score"]
             self.children = [Tree(c) for c in t["children"]]
             self.type = t["type"]
+            self.not_solved_depth = t["not_solved_depth"]
         assert (
-            (self.type == "solved" and (not self.expandable) and self.in_stock)
+            (
+                self.type == "solved"
+                and (not self.expandable)
+                and self.in_stock
+                and (not self.children)
+            )
             or (self.type == "not_solved" and self.expandable)
             or (self.type == "internal" and self.expandable)
         )
@@ -143,22 +164,29 @@ class Tree:
             "ai_score": self.ai_score,
             "children": [c.json() for c in self.children],
             "type": self.type,
+            "not_solved_depth": self.not_solved_depth,
         }
 
     def stats(self) -> TreeStats:
         internal = [n for n in self.all_nodes() if n.type == "internal"]
         solved = [n for n in self.all_nodes() if n.type == "solved"]
+        max_depth = max(n.not_solved_depth for n in self.all_nodes())
         not_solved = [n for n in self.all_nodes() if n.type == "not_solved"]
 
         def node_stats(nodes: list[Tree]) -> NodeStats:
             return {
                 "count": len(nodes),
-                "expandable_smiles": sum((len(n.expandable) for n in nodes)),
-                "in_stock_smiles": sum((len(n.in_stock) for n in nodes)),
+                "expandable": sum((len(n.expandable) for n in nodes)),
+                "in_stock": sum((len(n.in_stock) for n in nodes)),
             }
 
         return {
             "internal": node_stats(internal),
             "solved": node_stats(solved),
-            "not_solved": node_stats(not_solved),
+            "not_solved": {
+                depth: node_stats(
+                    [n for n in not_solved if n.not_solved_depth == depth]
+                )
+                for depth in range(max_depth + 1)
+            },
         }

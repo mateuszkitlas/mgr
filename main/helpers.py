@@ -29,6 +29,7 @@ class _AppScorers:
 
     def add_real_time(self, real_time: float):
         self.real_time += real_time
+        _print_stats(self.stats())
 
     def stats(self):
         return {
