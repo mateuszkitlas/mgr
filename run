@@ -3,14 +3,20 @@ ARG="$1"
 shift 1
 case "$ARG" in
 	main)
-		${CONDA_PREFIX}/envs/py3.10/bin/python -m main.main;;
+		${CONDA_PREFIX}/envs/py3.10/bin/python -m main.main
+    ;;
 	test)
-		${CONDA_PREFIX}/envs/py3.10/bin/python -m main.test;;
+		${CONDA_PREFIX}/envs/py3.10/bin/python -m main.test
+    ;;
 	format)
 		${CONDA_PREFIX}/envs/py3.10/bin/black *.py **/*.py
 		${CONDA_PREFIX}/envs/py3.10/bin/isort *.py **/*.py
 		;;
   stats_detailed)
-    ${CONDA_PREFIX}/envs/py3.10/bin/jupyter nbconvert \
+    time ${CONDA_PREFIX}/envs/py3.10/bin/jupyter nbconvert \
       --execute --to notebook --inplace stats_detailed.ipynb
+    ;;
+  stats)
+    time ${CONDA_PREFIX}/envs/py3.10/bin/jupyter nbconvert \
+      --execute --to notebook --inplace stats.ipynb
 esac

@@ -21,3 +21,13 @@ Total time: 221.13583500000001, Real time: 15.883786
 ```json
 {"ra": 2.316089, "sa": 0.000566, "sc": 0.043805, "syba": 120.992621}
 ```
+## ./run main
+```
+app: CondaApp(port=4001, subdir="scorers", env="scorers"), smiles_count: 56406, total_time: 242921.3566800005, real_time: 8687.422167999997
+app: CondaApp(port=4000, subdir="ai", env="aizynth-env"), smiles_count: 49, total_time: 5684.654824000001
+```
+
+## ./run stats
+```
+1m58.737s
+```

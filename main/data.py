@@ -49,9 +49,15 @@ def save_trees(data: list[Tuple[str, JsonTree]], filename: str):
         json.dump(data, f)
 
 
-def load_trees(filename: str) -> list[Tuple[str, JsonTree]]:
+def load_trees(filename: str, retries: int = 3) -> list[Tuple[str, JsonTree]]:
     try:
         with open(os.path.join(results_dir, filename)) as f:
             return json.load(f)
     except FileNotFoundError:
         return []
+    except json.JSONDecodeError as e:
+        # when `./run main` and `./run stats` concurently, this error may raise
+        if retries > 0:
+            return load_trees(filename, retries - 1)
+        else:
+            raise e
