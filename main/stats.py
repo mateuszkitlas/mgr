@@ -4,7 +4,6 @@ from typing import Any, Optional, Tuple, TypeVar
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 from IPython.display import HTML, display
 from matplotlib.ticker import FormatStrFormatter
 from scipy.stats import spearmanr
@@ -72,31 +71,34 @@ def _pairs_parent_child(
     )
 
 
-def display_dict(data: dict[str, Any]):
-    serialized = serialize_dict(data, "\n")
-    display(HTML(f"<pre>{serialized}</pre>"))
+def _fn_txt(fn: Fn[Any, Any]):
+    return inspect.getsource(fn).replace("\n", "")
 
 
-def _ax6(title: dict[str, Any], has_data: bool):
+def display_str(data: str):
+    display(HTML(f"<pre>{data}</pre>"))
+
+
+def _ax6(title: str, has_data: bool):
     if has_data:
-        display_dict(title)
         fig, axs = plt.subplots(nrows=3, ncols=2)
-        fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.94)
+        fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.75)
         fig.set_dpi(220)
         fig.set_figheight(7)
-        # fig.suptitle(_title)
+        fig.suptitle(title, horizontalalignment="left", x=0.005)
         for (score_name, getter), ax in zip(_score_getters, axs.flat):
             ax.set_title(f"score={score_name}")
             ax.ticklabel_format(style="plain")
             yield (score_name, getter, ax)
         plt.show()
     else:
-        display_dict({"error": "too little data", **title})
+        display_str(f"too little data for: \n{title}")
 
 
 def _hist(ax: Any, x: list[float], bin_count: int, color: str):
-    counts, bins, _patches = ax.hist(x=[x], color=[color], bins=bin_count)
-    ax.set_xticks(bins)
+    _counts, _bins, _patches = ax.hist(x=[x], color=[color], bins=bin_count)
+    # ax.set_xticks(bins)
+    """
     bin_centers = 0.5 * np.diff(bins) + bins[:-1]
     for count, x in zip(counts, bin_centers):
         percent = "%0.0f%%" % (100 * float(count) / counts.sum())
@@ -109,6 +111,7 @@ def _hist(ax: Any, x: list[float], bin_count: int, color: str):
             va="top",
             ha="center",
         )
+    """
 
 
 def input_data(detailed: bool):
@@ -151,16 +154,23 @@ def scatter_pairs(
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
-        xs, ys = _unzip(_pairs_siblings(roots, xtype, ytype))
-        title = {
-            "xtype": xtype,
-            "ytype": ytype,
-            "tree_to_scores": inspect.getsource(tree_to_scores),
-        }
         if detailed:
-            title["source"] = source
+            display_str(source)
+        xs, ys = _unzip(_pairs_siblings(roots, xtype, ytype))
         for agg_name, agg_color, agg_fn in _agg:
-            display_dict({"agg_fn": agg_name})
+            title = f"""
+# scatter plot of x_y_pairs
+
+tree_to_scores = {_fn_txt(tree_to_scores)}
+
+for every tree in source:
+  for every node in tree:
+    for every pair (xnode, ynode) in node.children:
+      if xnode.type in {xtype} and ynode.type in {ytype}:
+        x_y_pairs.append((
+          {agg_name}(tree_to_scores(xnode)),
+          {agg_name}(tree_to_scores(ynode))
+        ))"""
             for score_name, getter, ax in _ax6(title, bool(xs)):
 
                 def stat(t: Tree):
@@ -190,31 +200,31 @@ def histogram_pairs_siblings(
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
-        pairs = _pairs_siblings(roots, xtype, ytype)
-        title = {
-            "xtype": xtype,
-            "ytype": ytype,
-            "tree_to_scores": inspect.getsource(tree_to_scores),
-            "description": "f(xtype) - f(ytype)",
-        }
         if detailed:
-            title["source"] = source
+            display_str(source)
+        pairs = _pairs_siblings(roots, xtype, ytype)
         for agg_name, agg_color, agg_fn in _agg:
-            display_dict({"agg_fn": agg_name})
-            for score_name, getter, ax in _ax6(title, bool(pairs)):
+            title = f"""
+# histogram of x
+
+tree_to_scores = {_fn_txt(tree_to_scores)}
+
+for every tree in source:
+  for every node in tree:
+    for every pair (xnode, ynode) in node.children:
+      if xnode.type in {xtype} and ynode.type in {ytype}:
+        x.append({agg_name}(tree_to_scores(xnode)) - {agg_name}(tree_to_scores(ynode)))"""
+            for _score_name, getter, ax in _ax6(title, bool(pairs)):
 
                 def stat(t: Tree) -> float:
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
-                if score_name == "mf":
-                    ax.xaxis.set_tick_params(labelsize="x-small")
-                    ax.xaxis.set_major_formatter(FormatStrFormatter("%0.0f"))
-                else:
-                    ax.xaxis.set_major_formatter(FormatStrFormatter("%0.1f"))
+                ax.xaxis.set_tick_params(labelsize="x-small")
+                ax.xaxis.set_major_formatter(FormatStrFormatter("%0.0f"))
                 _hist(
                     ax,
                     [stat(x) - stat(y) for x, y in pairs],
-                    40,  #16 if score_name == "mf" else 10,
+                    20,  # 16 if score_name == "mf" else 10,
                     agg_color,
                 )
                 # np.linspace(from, to, step)
@@ -227,31 +237,31 @@ def histogram_pairs_parent_child(
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
-        pairs = _pairs_parent_child(roots, parenttype, childtype)
-        title = {
-            "parenttype": parenttype,
-            "childtype": childtype,
-            "tree_to_scores": inspect.getsource(tree_to_scores),
-            "description": "f(parenttype) - f(childtype)",
-        }
         if detailed:
-            title["source"] = source
+            display_str(source)
+        pairs = _pairs_parent_child(roots, parenttype, childtype)
         for agg_name, agg_color, agg_fn in _agg:
-            display_dict({"agg_fn": agg_name})
-            for score_name, getter, ax in _ax6(title, bool(pairs)):
+            title = f"""
+# histogram of x
+
+tree_to_scores = {_fn_txt(tree_to_scores)}
+
+for every tree in source:
+  for every node in tree:
+    for every child_node in node.children:
+      if node.type in {parenttype} and child_node in {childtype}:
+        x.append({agg_name}(tree_to_scores(node)) - {agg_name}(tree_to_scores(child_node)))"""
+            for _score_name, getter, ax in _ax6(title, bool(pairs)):
 
                 def stat(t: Tree) -> float:
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
-                if score_name == "mf":
-                    ax.xaxis.set_tick_params(labelsize="x-small")
-                    ax.xaxis.set_major_formatter(FormatStrFormatter("%0.0f"))
-                else:
-                    ax.xaxis.set_major_formatter(FormatStrFormatter("%0.1f"))
+                ax.xaxis.set_tick_params(labelsize="x-small")
+                # ax.xaxis.set_major_formatter(FormatStrFormatter("%0.0f"))
                 _hist(
                     ax,
                     [stat(x) - stat(y) for x, y in pairs],
-                    40, #16 if score_name == "mf" else 10,
+                    40,  # 16 if score_name == "mf" else 10,
                     agg_color,
                 )
 
@@ -263,15 +273,25 @@ def boxplot_scores(
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
+        if detailed:
+            display_str(source)
         xs = [node for node in _all_nodes(roots) if node.type in ltype]
         ys = [node for node in _all_nodes(roots) if node.type in rtype]
-        title = {
-            "ltype": ltype,
-            "rtype": rtype,
-            "tree_to_scores": inspect.getsource(tree_to_scores),
-        }
-        if detailed:
-            title["source"] = source
+        title = f"""
+# boxplots of left_min, left_max, left_avg, right_min, right_max, right_avg
+
+tree_to_scores = {_fn_txt(tree_to_scores)}
+
+for every tree in source:
+  for every node in tree:
+    if node.type in {ltype}:
+      left_min.append(min(tree_to_scores(node)))
+      left_max.append(max(tree_to_scores(node)))
+      left_avg.append(avg(tree_to_scores(node)))
+    if node.type in {rtype}:
+      right_min.append(min(tree_to_scores(node)))
+      right_max.append(max(tree_to_scores(node)))
+      right_avg.append(avg(tree_to_scores(node)))"""
         for _, getter, ax in _ax6(title, bool(xs) and bool(ys)):
             for i, (agg_name, agg_color, agg_fn) in enumerate(_agg):
 
