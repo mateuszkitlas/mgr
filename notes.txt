@@ -18,3 +18,28 @@ TODO
 - średio jak due jest drzewo poraki
 - matplotlib kolory dla daltonistów
 - {scatter, histogram} - ręcznie wywalic ałtlajery (mf)
+
+
+- histogram z [
+  boxplot(sa, [[internal, solved], [not_solved]], max),
+  boxplot(mf, [[internal, solved], [not_solved]], min),
+  boxplot(sc, [[internal, solved], [not_solved]], max),
+  boxplot(sa, [[solved], [not_solved]], max),   -- krzywa roc
+  boxplot(sc, [[solved], [not_solved]], max),   -- krzywa roc
+  boxplot(mf, [[solved], [not_solved]], min)
+  
+]
+- [rzyjrzeć sie takim nołdom, które są ałtlajerami. moe to są liscie, moze cośtam
+- scikit-learn ROC, AUC? (wiersze od 24-29)
+
+for treshold in [0.15, 0.4, 0.6]:
+  podmienić klasyfikator.
+    - zrobić wcześniej przeskalowanie  z (min, max) -> [0,1] * treshold
+    - true/false z tresholdem z krzywej ROC
+  - przeskalowanie: scipy numpy normalize
+    - sc i sa - wyciagnąć z pejperów min i max
+    - czy wysolwuje więcej?
+    - zachować drzewo i tak. moe coś z tym zrobimy
+    - zobaczyć statystyke dla drzew X1
+
+X1: statystyka dla drzewa: głębokość najnnizszego liscia solved

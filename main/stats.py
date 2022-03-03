@@ -25,9 +25,10 @@ def avg(l: list[float]):
 
 
 AggFn = Fn[list[float], float]
+AggTuple = Tuple[str, str, AggFn]
 
 # name, color, scatter_kwargs, fn
-_agg: list[Tuple[str, str, AggFn]] = [
+agg_list: list[AggTuple] = [
     ("min", "blue", min),
     ("max", "red", max),
     ("avg", "green", avg),
@@ -94,9 +95,22 @@ def _ax6(title: str, has_data: bool):
     else:
         display_str(f"too little data for: \n{title}")
 
+def _ax2(title: str, ttype: list[TreeTypes], btype: list[TreeTypes]):
+    fig, axs = plt.subplots(nrows=2, ncols=1)
+    fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.75)
+    fig.set_dpi(220)
+    fig.set_figheight(7)
+    fig.suptitle(title, horizontalalignment="left", x=0.005)
+    for type, ax in zip([ttype, btype], axs.flat):
+        ax.set_title(f"type={type}")
+        ax.ticklabel_format(style="plain")
+        yield (type, ax)
+    plt.show()
 
-def _hist(ax: Any, x: list[float], bin_count: int, color: str):
-    _counts, _bins, _patches = ax.hist(x=[x], color=[color], bins=bin_count)
+
+
+def _hist(ax: Any, x: list[float], bin_count: int, color: str, range: Optional[Tuple[float, float]]=None):
+    return ax.hist(x=[x], color=[color], bins=bin_count, range=range)
     # ax.set_xticks(bins)
     """
     bin_centers = 0.5 * np.diff(bins) + bins[:-1]
@@ -157,7 +171,7 @@ def scatter_pairs(
         if detailed:
             display_str(source)
         xs, ys = _unzip(_pairs_siblings(roots, xtype, ytype))
-        for agg_name, agg_color, agg_fn in _agg:
+        for agg_name, agg_color, agg_fn in agg_list:
             title = f"""
 # scatter plot of x_y_pairs
 
@@ -203,7 +217,7 @@ def histogram_pairs_siblings(
         if detailed:
             display_str(source)
         pairs = _pairs_siblings(roots, xtype, ytype)
-        for agg_name, agg_color, agg_fn in _agg:
+        for agg_name, agg_color, agg_fn in agg_list:
             title = f"""
 # histogram of x
 
@@ -240,7 +254,7 @@ def histogram_pairs_parent_child(
         if detailed:
             display_str(source)
         pairs = _pairs_parent_child(roots, parenttype, childtype)
-        for agg_name, agg_color, agg_fn in _agg:
+        for agg_name, agg_color, agg_fn in agg_list:
             title = f"""
 # histogram of x
 
@@ -264,6 +278,7 @@ for every tree in source:
                     40,  # 16 if score_name == "mf" else 10,
                     agg_color,
                 )
+
 
 
 def boxplot_scores(
@@ -293,7 +308,7 @@ for every tree in source:
       right_max.append(max(tree_to_scores(node)))
       right_avg.append(avg(tree_to_scores(node)))"""
         for _, getter, ax in _ax6(title, bool(xs) and bool(ys)):
-            for i, (agg_name, agg_color, agg_fn) in enumerate(_agg):
+            for i, (agg_name, agg_color, agg_fn) in enumerate(agg_list):
 
                 def stat(t: Tree) -> float:
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
@@ -306,10 +321,54 @@ for every tree in source:
                 ax.boxplot(
                     [x, y],
                     labels=[label(str(ltype)), label(str(rtype))],
-                    positions=[i, i + len(_agg)],
+                    positions=[i, i + len(agg_list)],
                     boxprops=dict(color=agg_color),
                     capprops=dict(color=agg_color),
                     whiskerprops=dict(color=agg_color),
                     flierprops=dict(color=agg_color, markeredgecolor=agg_color),
                     medianprops=dict(color=agg_color),
                 )
+
+def histogram_top_bottom(
+    ttype: list[TreeTypes],
+    btype: list[TreeTypes],
+    tree_to_scores: Fn[Tree, list[Score]],
+    agg_tuple: AggTuple,
+    score_getter: Tuple[str, ScoreGetter],
+    detailed: bool,
+):
+    for roots, _source in input_data(detailed):
+        agg_name, agg_color, agg_fn = agg_tuple
+        score_name, getter = score_getter
+        def stat(t: Tree) -> float:
+            return _tree_to_float(t, tree_to_scores, getter, agg_fn)
+
+        
+        title=f"""
+# histogram of top, bottom
+
+tree_to_scores = {_fn_txt(tree_to_scores)}
+score = {score_name}
+
+for every tree in source:
+  for every node in tree:
+    if node.type in {ttype}:
+      top.append({agg_name}(tree_to_scores(node))))
+    if node.type in {btype}:
+      top.append({agg_name}(tree_to_scores(node))))
+"""
+        all_nodes = list(flatten((root.all_nodes() for root in roots)))
+        def minmax(l: list[float]):
+            return min(l), max(l)
+        range = minmax([stat(tree) for tree in all_nodes])
+        for type, ax in _ax2(title, ttype, btype):
+            ax.xaxis.set_tick_params(labelsize="x-small")
+            ax.xaxis.set_major_formatter(FormatStrFormatter("%0.0f"))
+            ax.set_ylim((0, 3000))
+            _hist(
+                ax,
+                [stat(tree) for tree in all_nodes if tree.type in type],
+                30,
+                agg_color,
+                range=range,
+            )

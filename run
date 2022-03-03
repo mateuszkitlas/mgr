@@ -19,4 +19,9 @@ case "$ARG" in
   stats)
     time ${CONDA_PREFIX}/envs/py3.10/bin/jupyter nbconvert \
       --execute --to notebook --inplace stats.ipynb
+    ;;
+  stats_selected)
+    time ${CONDA_PREFIX}/envs/py3.10/bin/jupyter nbconvert \
+      --execute --to notebook --inplace stats_selected.ipynb
+    ;;
 esac
