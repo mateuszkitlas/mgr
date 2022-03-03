@@ -371,7 +371,7 @@ for every tree in source:
 
         range = minmax([stat(tree) for tree in all_nodes])
         for type, ax in _ax2(title, ttype, btype):
-            ax.set_ylim((0, 3000))
+            # ax.set_ylim((0, 3000))
             _hist(
                 ax,
                 [stat(tree) for tree in all_nodes if tree.type in type],
@@ -379,12 +379,18 @@ for every tree in source:
                 agg_color,
                 range=range,
             )
-        y = [1 for tree in all_nodes if tree.type in ttype] + [0 for tree in all_nodes if tree.type in btype]
-        pred = [stat(tree) for tree in all_nodes if tree.type in ttype] + [stat(tree) for tree in all_nodes if tree.type in btype]
+        y = [1 for tree in all_nodes if tree.type in ttype] + [
+            0 for tree in all_nodes if tree.type in btype
+        ]
+        pred = [stat(tree) for tree in all_nodes if tree.type in ttype] + [
+            stat(tree) for tree in all_nodes if tree.type in btype
+        ]
         fpr, tpr, _thresholds = metrics.roc_curve(y, pred)
         roc_auc = metrics.auc(fpr, tpr)
-        display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name=f"{score_name} {agg_name}")
-        
+        display = metrics.RocCurveDisplay(
+            fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name=f"{score_name} {agg_name}"
+        )
+
         fig, ax = plt.subplots()
         fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.75)
         fig.set_dpi(220)
