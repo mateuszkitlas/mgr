@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from IPython.display import HTML, display
 from matplotlib.ticker import FormatStrFormatter
 from scipy.stats import spearmanr
+from sklearn import metrics
 
 from shared import Fn
 
@@ -95,6 +96,7 @@ def _ax6(title: str, has_data: bool):
     else:
         display_str(f"too little data for: \n{title}")
 
+
 def _ax2(title: str, ttype: list[TreeTypes], btype: list[TreeTypes]):
     fig, axs = plt.subplots(nrows=2, ncols=1)
     fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.75)
@@ -108,8 +110,13 @@ def _ax2(title: str, ttype: list[TreeTypes], btype: list[TreeTypes]):
     plt.show()
 
 
-
-def _hist(ax: Any, x: list[float], bin_count: int, color: str, range: Optional[Tuple[float, float]]=None):
+def _hist(
+    ax: Any,
+    x: list[float],
+    bin_count: int,
+    color: str,
+    range: Optional[Tuple[float, float]] = None,
+):
     return ax.hist(x=[x], color=[color], bins=bin_count, range=range)
     # ax.set_xticks(bins)
     """
@@ -280,7 +287,6 @@ for every tree in source:
                 )
 
 
-
 def boxplot_scores(
     ltype: list[TreeTypes],
     rtype: list[TreeTypes],
@@ -329,6 +335,7 @@ for every tree in source:
                     medianprops=dict(color=agg_color),
                 )
 
+
 def histogram_top_bottom(
     ttype: list[TreeTypes],
     btype: list[TreeTypes],
@@ -340,11 +347,11 @@ def histogram_top_bottom(
     for roots, _source in input_data(detailed):
         agg_name, agg_color, agg_fn = agg_tuple
         score_name, getter = score_getter
+
         def stat(t: Tree) -> float:
             return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
-        
-        title=f"""
+        title = f"""
 # histogram of top, bottom
 
 tree_to_scores = {_fn_txt(tree_to_scores)}
@@ -358,12 +365,12 @@ for every tree in source:
       top.append({agg_name}(tree_to_scores(node))))
 """
         all_nodes = list(flatten((root.all_nodes() for root in roots)))
+
         def minmax(l: list[float]):
             return min(l), max(l)
+
         range = minmax([stat(tree) for tree in all_nodes])
         for type, ax in _ax2(title, ttype, btype):
-            ax.xaxis.set_tick_params(labelsize="x-small")
-            ax.xaxis.set_major_formatter(FormatStrFormatter("%0.0f"))
             ax.set_ylim((0, 3000))
             _hist(
                 ax,
@@ -372,3 +379,15 @@ for every tree in source:
                 agg_color,
                 range=range,
             )
+        y = [1 for tree in all_nodes if tree.type in ttype] + [0 for tree in all_nodes if tree.type in btype]
+        pred = [stat(tree) for tree in all_nodes if tree.type in ttype] + [stat(tree) for tree in all_nodes if tree.type in btype]
+        fpr, tpr, _thresholds = metrics.roc_curve(y, pred)
+        roc_auc = metrics.auc(fpr, tpr)
+        display = metrics.RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name=f"{score_name} {agg_name}")
+        
+        fig, ax = plt.subplots()
+        fig.subplots_adjust(hspace=0.25, bottom=0.05, left=0, top=0.75)
+        fig.set_dpi(220)
+        fig.set_figheight(7)
+        display.plot(ax)
+        plt.show()
