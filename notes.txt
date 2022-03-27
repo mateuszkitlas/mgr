@@ -40,6 +40,21 @@ for treshold in [0.15, 0.4, 0.6]:
     - sc i sa - wyciagnąć z pejperów min i max
     - czy wysolwuje więcej?
     - zachować drzewo i tak. moe coś z tym zrobimy
-    - zobaczyć statystyke dla drzew X1
+!========    - zobaczyć statystyke dla drzew X1
+!========  X1: statystyka dla drzewa: głębokość najnnizszego liscia solved
 
-X1: statystyka dla drzewa: głębokość najnnizszego liscia solved
+
+- heatmapa [2, 5] AUC; współczynnik korelacji
+
+- tabelka: scory / [ai,asckos]
+ dane: AUC
+ 
+
+
+- mierzymy w rozmiarze drzewa
+- zrobić statystyki per konfiguracja
+  - średnia zmiana not_solved; solved; internal
+  - liczba niesolvovowalnych, które się zaczęły solvować
+  - X1 statystyka po głębokości naniszego liścia solved
+- teraz askcos!
+

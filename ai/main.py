@@ -1,9 +1,48 @@
+import asyncio
 import os
-from typing import Any, Optional
+from typing import Any, Callable, List, Literal, Optional, Tuple, TypedDict
 
-from aizynthfinder.aizynthfinder import AiZynthFinder
+import numpy as np
 
+from conda_app import CondaApp
 from shared import Timer, project_dir, serve
+
+
+class Setup(TypedDict):
+    agg: Literal["max", "min"]
+    score: Literal["sa", "sc", "mf"]
+    uw_multiplier: float
+    normalize: Tuple[float, float, bool]
+
+
+class Input(TypedDict):
+    smiles: str
+    setup: Setup
+
+
+setup: Optional[Setup] = None
+
+
+def patch_calc_score(scorer: Callable[[List[str], float, float], float]):
+    from aizynthfinder.search.mcts.state import MctsState
+
+    def _calc_score(self):
+        # How many is in stock (number between 0 and 1)
+        num_in_stock = np.sum(self.in_stock_list)
+        # This fraction in stock, makes the algorithm artificially add stock compounds by cyclic addition/removal
+        fraction_in_stock = num_in_stock / len(self.mols)
+
+        # Max_transforms should be low
+        max_transforms = self.max_transforms
+        # Squash function, 1 to 0, 0.5 around 4.
+        max_transforms_score: float = self._squash_function(max_transforms, -1, 0, 4)
+
+        expandable: List[str] = [
+            mol.smiles for mol in self.mols if mol not in self.stock
+        ]
+        return scorer(expandable, fraction_in_stock, max_transforms_score)
+
+    MctsState._calc_score = _calc_score
 
 
 def serialize_state(state):
@@ -54,6 +93,8 @@ configdict = {
 
 class AiZynth:
     def __init__(self):
+        from aizynthfinder.aizynthfinder import AiZynthFinder
+
         self.finder = AiZynthFinder(configdict=configdict)
         self.finder.stock.select("zinc")
         self.finder.expansion_policy.select("full_uspto")
@@ -74,9 +115,54 @@ class AiZynth:
         return AiZynth().tree(smiles)
 
 
+def normalize(first: float, second: float, inverted: bool, score: float):
+    left, right = (None, 1.0) if inverted else (1.0, None)
+    return left if score <= first else (0.0 if score <= second else right)
+
+
+async def main():
+    conda_app = CondaApp[Tuple[str, List[str]], List[float]](
+        4002, "scorers.ai", "scorers"
+    )
+
+    async with conda_app as fetch:
+
+        def scorer(
+            expandable: List[str], fraction_in_stock: float, max_transforms_score: float
+        ):
+            if setup:
+                uw_mul = setup["uw_multiplier"]
+                ai_mul = 0.95 - uw_mul
+                mt_mul = 0.05
+
+                def f(normalized: float):
+                    return (
+                        uw_mul * normalized
+                        + ai_mul * fraction_in_stock
+                        + mt_mul * max_transforms_score
+                    )
+
+                if uw_mul > 0.0 and expandable:
+                    agg = {"min": min, "max": max}[setup["agg"]]
+                    first, second, inverted = setup["normalize"]
+                    scores = asyncio.run(fetch((setup["score"], expandable)))
+                    normalized = normalize(first, second, inverted, agg(scores))
+                    return 0 if normalized is None else f(normalized)
+                else:
+                    return f(0.0)
+            else:
+                raise NotImplementedError
+
+        patch_calc_score(scorer)
+
+        def handler(data: Optional[Input]):
+            if data:
+                global setup
+                setup = data["setup"]
+                return Timer.calc(lambda: AiZynth.calc(data["smiles"]))
+
+        serve(handler)
+
+
 if __name__ == "__main__":
-
-    def handler(smiles: Optional[str]):
-        return smiles and Timer.calc(lambda: AiZynth.calc(smiles))
-
-    serve(handler)
+    asyncio.run(main())

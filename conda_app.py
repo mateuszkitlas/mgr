@@ -56,15 +56,15 @@ R = TypeVar("R")
 
 
 class CondaApp(Generic[T, R]):
-    def __init__(self, port: int, subdir: str, env: str):
+    def __init__(self, port: int, module: str, env: str):
         self.port = port
-        self.subdir = subdir
+        self.module = module
         self.env = env
         self.p: Optional[subprocess.Popen[Any]] = None
         self.executor: Optional[concurrent.futures.ProcessPoolExecutor] = None
 
     def __str__(self):
-        return f'CondaApp(port={self.port}, subdir="{self.subdir}", env="{self.env}")'
+        return f'CondaApp(port={self.port}, module="{self.module}", env="{self.env}")'
 
     def running(self):
         return self.p and (self.p.poll() is None)
@@ -94,7 +94,7 @@ class CondaApp(Generic[T, R]):
             [
                 os.path.join(conda_dir, "envs", self.env, "bin/python"),
                 "-m",
-                f"{self.subdir}.main",
+                self.module,
                 str(self.port),
             ]
         )
@@ -127,7 +127,7 @@ class CondaApp(Generic[T, R]):
             try:
                 self.p.wait(timeout=3)
             except subprocess.TimeoutExpired:
-                print(f"{self} did not exited gracefully")
+                print(f"{self} did not exit gracefully")
             self.p = None
 
     async def __aexit__(self, *_: Any):

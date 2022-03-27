@@ -1,11 +1,11 @@
-from asyncio import gather
+from asyncio import gather, run
 from itertools import chain
 from typing import (Awaitable, Iterable, Literal, Optional, Tuple, TypedDict,
                     TypeVar, Union)
 
 from shared import Fn
 
-from .score import JsonSmiles, Smiles
+from .score import JsonSmiles, Score, Smiles
 from .types import AiTree
 from .utils import flatten
 
@@ -116,6 +116,17 @@ class JsonTree(TypedDict):
 
 
 class Tree:
+    @staticmethod
+    def from_ai_dummy_scorings(ai_tree: AiTree):
+        _tree = _Tree(ai_tree)
+        _tree.assign_not_solved_depth()
+
+        async def f(x: Tuple[str, Optional[int]]) -> Smiles:
+            return Smiles(x[0], Score(0.0, 0.0, 0.0, 0.0, 0.0), x[1],)
+
+        run(_tree.assign_scores_rec(f))
+        return Tree(_tree)
+
     @staticmethod
     async def from_ai(ai_tree: AiTree, f: Scorer):
         _tree = _Tree(ai_tree)

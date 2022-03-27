@@ -7,6 +7,7 @@ from typing import NamedTuple, Optional, Tuple
 from shared import paracetamol_smiles, project_dir
 
 from .tree import JsonTree
+from .types import AiInput, AiTree
 
 
 class Mol(NamedTuple):
@@ -42,14 +43,14 @@ def data():
 results_dir = os.path.join(project_dir, "results")
 
 
-def save_trees(data: list[Tuple[str, JsonTree]], filename: str):
+def save_trees(data: list[Tuple[AiInput, AiTree]], filename: str):
     if not os.path.exists(results_dir):
         os.mkdir(results_dir)
     with open(os.path.join(results_dir, filename), "w") as f:
         json.dump(data, f)
 
 
-def load_trees(filename: str, retries: int = 3) -> list[Tuple[str, JsonTree]]:
+def load_trees(filename: str, retries: int = 3) -> list[Tuple[AiInput, AiTree]]:
     try:
         with open(os.path.join(results_dir, filename)) as f:
             return json.load(f)
