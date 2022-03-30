@@ -4,3 +4,6 @@ data/*
 data.tgz
 opt-aizynthfinder
 stats_detailed.ipynb
+results/dummy_scorings.txt
+results/trees_v3.json
+results/trees_with_setups.json
