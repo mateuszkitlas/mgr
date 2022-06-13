@@ -1,10 +1,11 @@
 import asyncio
 import os
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, TypedDict
+from typing import (Any, Callable, Dict, List, Literal, Optional, Tuple,
+                    TypedDict)
 
 import numpy as np
 
-from shared import Timer, project_dir, serve, CondaApp
+from shared import CondaApp, Timer, project_dir, serve
 
 
 class Setup(TypedDict):

@@ -1,18 +1,20 @@
 
 from typing import Any, Dict, List, Optional, Tuple
-from conda_app import CondaApp
 
 import rdkit.Chem as Chem
-
+from conda_app import CondaApp
 
 from shared import Timer, project_dir, serve
+
 
 def init():
     from os import symlink
     from os.path import exists
+
+    from askcos.prioritization.prioritizer.scscore import \
+        SCScorePrecursorPrioritizer
     from askcos.retrosynthetic.mcts.tree_builder import MCTS
     from askcos.retrosynthetic.transformer import RetroTransformer
-    from askcos.prioritization.prioritizer.scscore import SCScorePrecursorPrioritizer
     
     data_dir = project_dir + "/askcos-core/askcos/data"
     if not exists(data_dir):

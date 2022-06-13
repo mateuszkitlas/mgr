@@ -1,8 +1,8 @@
 from asyncio import gather, run
 from sys import argv
-from shared import CondaApp
 
 from main.tree import Tree
+from shared import CondaApp
 
 from .data import Db, data
 from .graph import Graph

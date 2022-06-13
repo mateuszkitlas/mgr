@@ -4,7 +4,7 @@ from typing import List, Literal, Tuple, Union
 
 from shared import CondaApp
 
-from .types import AcResult, AiTree, Timed, AiInput
+from .types import AcResult, AiInput, AiTree, Timed
 
 Scoring = Literal["sa", "sc", "ra", "syba", "mf"]
 all_scorings: List[Scoring] = ["sa", "sc", "ra", "syba", "mf"]
