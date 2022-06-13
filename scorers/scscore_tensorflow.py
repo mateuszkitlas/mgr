@@ -193,7 +193,7 @@ def get_sc_scorer() -> Callable[[str], float]:
     model = SCScorer()
     model.build()
     model.restore(
-        os.path.join(project_dir, "data", "sc_models", "full_reaxys_model_1024bool"),
+        os.path.join(project_dir, "scorers/scscore/models", "full_reaxys_model_1024bool"),
         "ckpt-10654",
     )
 

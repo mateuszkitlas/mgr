@@ -6,3 +6,7 @@ dependencies:
   - matplotlib
   - ipykernel
   - scikit-learn
+  - networkx
+  - pip
+  - pip:
+    - sqlitedict

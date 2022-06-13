@@ -1,78 +1,52 @@
+import asyncio
 from contextlib import asynccontextmanager
-from typing import Any, Optional, Tuple
+from typing import List, Literal, Tuple, Union
 
-from main.utils import serialize_dict
+from shared import CondaApp
 
-from .conda_app import CondaApp
-from .score import JsonScore, Score, Smiles
-from .types import AiTree, Timed
+from .types import AcResult, AiTree, Timed, AiInput
 
-
-def _print_stats(j: dict[str, Any]):
-    print(f"{serialize_dict(j, ', ')}")
-
-
-class _AppScorers:
-    def __init__(self):
-        self.all: list[Score] = []
-        self.conda_app = CondaApp[str, Tuple[JsonScore, JsonScore]](
-            4001, "scorers", "scorers"
-        )
-        self.real_time = 0.0
-
-    async def score(self, x: Tuple[str, Optional[int]]) -> Smiles:
-        smiles, transforms = x
-        jtimes, jscore = await self.conda_app.fetch(smiles)
-        times, score = Score.from_json(jtimes), Score.from_json(jscore)
-        self.all.append(times)
-        return Smiles(smiles, score, transforms)
-
-    def add_real_time(self, real_time: float):
-        self.real_time += real_time
-        _print_stats(self.stats())
-
-    def stats(self):
-        return {
-            "app": str(self.conda_app),
-            "smiles_count": len(self.all),
-            "total_time": sum((s.sa + s.sc + s.ra + s.syba for s in self.all)),
-            "real_time": self.real_time,
-        }
+Scoring = Literal["sa", "sc", "ra", "syba", "mf"]
+all_scorings: List[Scoring] = ["sa", "sc", "ra", "syba", "mf"]
 
 
 @asynccontextmanager
 async def app_scorers():
-    app = _AppScorers()
+    app = CondaApp[Tuple[Union[Scoring, Literal["smiles"]], str], Union[float, str]](
+        4000, "scorers", "scorers"
+    )
     try:
-        async with app.conda_app:
-            yield app
+        await app.start()
+
+        async def f(scoring: Scoring, smiles: str) -> float:
+            ret = await app.fetch((scoring, smiles))
+            assert isinstance(ret, float)
+            return ret
+
+        async def g(smiles: str) -> str:
+            ret = await app.fetch(("smiles", smiles))
+            assert isinstance(ret, str)
+            return ret
+
+        yield f, g
     finally:
-        _print_stats(app.stats())
-
-
-class _AppAi:
-    def __init__(self):
-        self.all: list[float] = []
-        self.conda_app = CondaApp[str, Timed[AiTree]](4000, "ai", "aizynth-env")
-
-    async def tree(self, smiles: str) -> AiTree:
-        times, ai_tree = await self.conda_app.fetch(smiles)
-        self.all.append(times)
-        return ai_tree
-
-    def stats(self):
-        return {
-            "app": str(self.conda_app),
-            "smiles_count": len(self.all),
-            "total_time": sum(self.all),
-        }
+        app.stop()
 
 
 @asynccontextmanager
-async def app_ai():
-    app = _AppAi()
+async def app_ai_ac():
+    ai = CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env")
+    ac = CondaApp[str, Timed[AcResult]](4002, "ac", "askcos")
     try:
-        async with app.conda_app:
-            yield app
+        await asyncio.gather(ai.start(), ac.start())
+        yield (ai.fetch, ac.fetch)
     finally:
-        _print_stats(app.stats())
+        try:
+            ai.stop()
+        finally:
+            ac.stop()
+
+@asynccontextmanager
+async def app_ai():
+    async with CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env") as x:
+        yield x

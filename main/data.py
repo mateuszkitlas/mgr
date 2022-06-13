@@ -1,12 +1,13 @@
 import csv
 import json
-import os
 from contextlib import contextmanager
-from typing import NamedTuple, Optional, Tuple
+from typing import Any, Awaitable, Callable, NamedTuple, Optional, TypeVar
 
-from shared import paracetamol_smiles, project_dir
+from sqlitedict import SqliteDict
 
-from .tree import JsonTree
+from shared import project_dir
+
+T = TypeVar("T")
 
 
 class Mol(NamedTuple):
@@ -20,14 +21,10 @@ class Mol(NamedTuple):
     def __str__(self):
         return f"{self.smiles}, {self.name}, {self.desc}, {self.additional}, {self.synthesis}, {self.char}"
 
-
-paracetamol = Mol(paracetamol_smiles, "paracetamol", "", "", "", "")
-
-
 @contextmanager
 def read_csv(filename: str, newline: Optional[str], delimiter: Optional[str]):
     with open(
-        os.path.join(project_dir, "main", filename), encoding="utf-8", newline=newline
+        f"{project_dir}/main/{filename}", encoding="utf-8", newline=newline
     ) as csvfile:
         csvreader = csv.reader(csvfile, delimiter=delimiter or ",")
         next(csvreader, None)  # header
@@ -39,25 +36,38 @@ def data():
         return [Mol(*row) for row in reader]
 
 
-results_dir = os.path.join(project_dir, "results")
+class Db:
+    def __init__(self):
+        self.db = SqliteDict(
+            f"{project_dir}/results/db.sqlite", outer_stack=False, autocommit=True
+        )
 
+    def _write(self, raw_key: str, value: T) -> T:
+        self.db[raw_key] = json.dumps(value, sort_keys=True)
+        return value
 
-def save_trees(data: list[Tuple[str, JsonTree]], filename: str):
-    if not os.path.exists(results_dir):
-        os.mkdir(results_dir)
-    with open(os.path.join(results_dir, filename), "w") as f:
-        json.dump(data, f)
+    async def maybe_create(self, key: Any, f: Callable[[], Awaitable[Any]]):
+        raw_key = json.dumps(key, sort_keys=True)
+        if raw_key not in self.db:
+            self._write(raw_key, await f())
 
+    async def read_or_create(
+        self, key: Any, f: Callable[[], Awaitable[T]]
+    ) -> Awaitable[T]:
+        raw_key = json.dumps(key, sort_keys=True)
+        return (
+            self.db[raw_key] if raw_key in self.db else self._write(raw_key, await f())
+        )
 
-def load_trees(filename: str, retries: int = 3) -> list[Tuple[str, JsonTree]]:
-    try:
-        with open(os.path.join(results_dir, filename)) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return []
-    except json.JSONDecodeError as e:
-        # when `./run main` and `./run stats` concurently, this error may raise
-        if retries > 0:
-            return load_trees(filename, retries - 1)
-        else:
-            raise e
+    def read(self, key: Any) -> Any:
+        return json.loads(self.db.get(json.dumps(key, sort_keys=True), "null"))
+
+    def write(self, key: Any, value: Any):
+        self._write(json.dumps(key, sort_keys=True), value)
+
+    def __enter__(self):
+        self.db.__enter__()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.db.close()

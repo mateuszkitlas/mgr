@@ -4,8 +4,6 @@ import sys
 from shared import (Fn, Timer, disable_mf, disable_syba, paracetamol_smiles,
                     project_dir, serve)
 
-# from .scscore_tensorflow import get_sc_scorer
-
 Scorer = Fn[str, float]
 
 

@@ -1,6 +1,10 @@
-from typing import Any, Iterable, TypedDict, TypeVar, Union
+from typing import Any, Iterable, Optional, TypedDict, TypeVar, Union
 
 T = TypeVar("T")
+
+
+def not_none(l: Iterable[Optional[T]]) -> Iterable[T]:
+    return (e for e in l if e is not None)
 
 
 def flatten(l: Iterable[Iterable[T]]) -> Iterable[T]:

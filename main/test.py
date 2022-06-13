@@ -2,9 +2,9 @@ import asyncio
 from typing import Optional, Tuple
 from unittest import IsolatedAsyncioTestCase, main
 
-from shared import Fn, Timer, disable_mf, disable_syba
+from shared import Fn, Timer
 
-from .data import load_trees, paracetamol, read_csv, save_trees
+from .data import read_csv
 from .helpers import app_ai, app_scorers
 from .score import Score, Smiles
 from .tree import Tree
@@ -13,7 +13,7 @@ from .tree import Tree
 class Test(IsolatedAsyncioTestCase):
     async def test_ai(self):
         async with app_ai() as ai:
-            ai_tree = await ai.tree(paracetamol.smiles)
+            ai_tree = await ai(zero_setup, paracetamol.smiles)
 
             async def fake_scorer(x: Tuple[str, Optional[int]]):
                 smiles, transforms = x
@@ -94,7 +94,7 @@ class Test(IsolatedAsyncioTestCase):
 
     async def test_all(self):
         async with app_ai() as ai, app_scorers() as scorer:
-            ai_tree = await ai.tree(paracetamol.smiles)
+            ai_tree = await ai.tree(zero_setup, paracetamol.smiles)
             real_time, tree = await Timer.acalc(Tree.from_ai(ai_tree, scorer.score))
             self.assertEqual(tree.not_solved_depth, -1)
             scorer.add_real_time(real_time)

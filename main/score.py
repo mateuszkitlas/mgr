@@ -1,5 +1,6 @@
 from typing import Optional, Tuple, TypedDict
 
+from main.data import Db
 from shared import Fn
 
 from .utils import serialize_dict
@@ -55,6 +56,8 @@ class JsonSmiles(TypedDict):
 
 
 class Smiles:
+    cache: dict[str, Score] = {}
+
     def __init__(self, smiles: str, score: Score, transforms: Optional[int]):
         self.smiles = smiles
         self.score = score
@@ -69,6 +72,20 @@ class Smiles:
             "score": self.score.json(),
             "transforms": self.transforms,
         }
+
+    @classmethod
+    def from_db(cls, smiles: str, transforms: Optional[int], db: Db):
+        def f(scoring: str):  # TODO Scoring type
+            ret = db.read([scoring, smiles])
+            assert isinstance(ret, float)
+            return ret
+
+        def g():
+            s = Score(f("sa"), f("sc"), f("ra"), f("mf"), f("syba"))
+            Smiles.cache[smiles] = s
+            return s
+
+        return Smiles(smiles, Smiles.cache.get(smiles) or g(), transforms)
 
     @staticmethod
     def from_json(j: JsonSmiles):

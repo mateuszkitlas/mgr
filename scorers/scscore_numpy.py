@@ -38,9 +38,8 @@ class SCScorer:
         self,
         weight_path=os.path.join(
             project_dir,
-            "data/sc_models",
-            "full_reaxys_model_1024bool",
-            "model.ckpt-10654.as_numpy.pickle",
+            # "scorers/scscore/models/model_1024bool.pickle",
+            "scorers/scscore/models/full_reaxys_model_1024bool/model.ckpt-10654.as_numpy.pickle"
         ),
         FP_rad=FP_rad,
         FP_len=FP_len,

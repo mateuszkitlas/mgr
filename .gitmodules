@@ -1,3 +1,12 @@
 [submodule "scorers/mf_score"]
 	path = scorers/mf_score
 	url = git@github.com:grzsko/MF-Score.git
+[submodule "scorers/scscore"]
+	path = scorers/scscore
+	url = git@github.com:connorcoley/scscore.git
+[submodule "askcos-core"]
+	path = askcos-core
+	url = git@github.com:ASKCOS/askcos-core.git
+[submodule "askcos-data"]
+	path = askcos-data
+	url = git@github.com:ASKCOS/askcos-data.git

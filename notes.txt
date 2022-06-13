@@ -43,3 +43,8 @@ for treshold in [0.15, 0.4, 0.6]:
     - zobaczyć statystyke dla drzew X1
 
 X1: statystyka dla drzewa: głębokość najnnizszego liscia solved
+
+
+============
+- odpalić na aizynth i uwzględnić kolejny score
+- Grzesiek chciałby mieć dane, z których jest policzony scatterplot itd

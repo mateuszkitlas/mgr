@@ -9,6 +9,9 @@ conda env create -f conda_scorers.yml
 
 # py3.10 for main app
 conda env create -f conda_py3.10.yml
+
+# askcos
+conda env create -f askcos-core/environment.yml
 ```
 
 # Computation time (in seconds)
