@@ -6,7 +6,7 @@ from shared import CondaApp
 
 from .data import Db, data
 from .graph import Graph
-from .helpers import Scoring, all_scorings, app_ai_ac, app_scorers
+from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers
 from .types import AiInput, AiTree, Setup, Timed
 
 uw_multipliers = [0.15, 0.4, 0.6]
@@ -17,7 +17,12 @@ def n(first: float, second: float):
 
 
 setups: list[Setup] = [
-    {"score": "sc", "uw_multiplier": 0.0, "normalize": n(2.5, 4.5), "agg": "max",},
+    {
+        "score": "sc",
+        "uw_multiplier": 0.0,
+        "normalize": n(2.5, 4.5),
+        "agg": "max",
+    },
     *[
         {
             "score": "sc",
@@ -50,29 +55,25 @@ setups: list[Setup] = [
 ]
 
 
-async def ai_ac():
+async def ac():
     mols = data()
     with Db() as db:
-        async with app_ai_ac() as (ai, ac):
-            for i, mol in enumerate(mols):
-                print(f"{i}/{len(mols)}")
-                # for i, setup in enumerate(setups):
-                await gather(
-                    db.maybe_create(["ai", mol.smiles], lambda: ai(mol.smiles)),
-                    db.maybe_create(["ac", mol.smiles], lambda: ac(mol.smiles)),
-                )
+        async with app_ac() as (fetch, _):
+            for j, mol in enumerate(mols):
+                print(f"[ac][mol {j}/{len(mols)}]")
+                await db.maybe_create(["ac", mol.smiles], lambda: fetch(mol.smiles))
 
 
 async def ai():
     mols = data()
     with Db() as db:
-        async with CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env") as (fetch, _):
+        async with app_ai() as (fetch, _):
             for j, mol in enumerate(mols):
                 for i, setup in enumerate(setups):
                     ai_input: AiInput = {"smiles": mol.smiles, "setup": setup}
-                    print(f"[setup {i}/{len(setups)}][mol {j}/{len(mols)}]")
+                    print(f"[ai][setup {i}/{len(setups)}][mol {j}/{len(mols)}]")
                     await db.maybe_create(["ai", ai_input], lambda: fetch(ai_input))
-                
+
 
 async def score_ac_smileses():
     mols = data()
@@ -113,8 +114,8 @@ def ac_graph_to_tree():
 
 
 if __name__ == "__main__":
-    if argv[1] == "ai_ac":
-        run(ai_ac())
+    if argv[1] == "ac":
+        run(ac())
     elif argv[1] == "ai":
         run(ai())
     elif argv[1] == "score_ac_smileses":

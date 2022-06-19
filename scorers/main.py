@@ -1,6 +1,6 @@
 import os
 import sys
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from shared import (Fn, Timer, disable_mf, disable_syba, paracetamol_smiles,
                     project_dir, serve)
@@ -97,19 +97,29 @@ if __name__ == "__main__":
 
     # print(f"Loading times: {times}")
     scorers = {
-      "ra": ra_scorer,
-      "sa": sa_scorer,
-      "sc": sc_scorer,
-      "mf": mf_scorer,
-      "syba": syba_scorer,
+        "ra": ra_scorer,
+        "sa": sa_scorer,
+        "sc": sc_scorer,
+        "mf": mf_scorer,
+        "syba": syba_scorer,
     }
+    keys = scorers.keys()
+    cache: Dict[str, Dict[str, float]] = {key: {} for key in keys}
+
+    def get(type: str, smiles: str):
+        v = cache[type].get(smiles)
+        if v is None:
+            w = scorers[type](smiles)
+            cache[type][smiles] = w
+            return w
+        return v
 
     def scorer(data: Optional[Tuple[str, List[str]]]):
         if data:
             type, smileses = data
-            return [scorers[type](smiles) for smiles in smileses]
+            return [get(type, smiles) for smiles in smileses]
 
-    for key in scorers.keys():
+    for key in keys:
         scorer((key, [paracetamol_smiles]))  # warm up
 
     serve(scorer)

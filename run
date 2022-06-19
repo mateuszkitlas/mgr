@@ -1,4 +1,5 @@
 #!/bin/bash
+
 export CONDA_PREFIX=`which conda | xargs dirname | xargs dirname`
 py310bin="${CONDA_PREFIX}/envs/py3.10/bin"
 jupyter(){
@@ -16,6 +17,12 @@ case "$1" in
   format)
     ${py310bin}/black *.py **/*.py
     ${py310bin}/isort *.py **/*.py
+    ;;
+  format-staged)
+    FILES=`git diff-index --cached --name-only HEAD | grep '.py$'`
+    ${py310bin}/black $FILES
+    ${py310bin}/isort $FILES
+    git add $FILES
     ;;
   jupyter)
     jupyter $2;;

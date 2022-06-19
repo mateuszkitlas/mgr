@@ -46,6 +46,13 @@ async def app_ai_ac():
         finally:
             ac.stop()
 
+
+@asynccontextmanager
+async def app_ac():
+    async with CondaApp[str, Timed[AcResult]](4002, "ac", "askcos") as x:
+        yield x
+
+
 @asynccontextmanager
 async def app_ai():
     async with CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env") as x:

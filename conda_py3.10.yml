@@ -1,8 +1,6 @@
 name: py3.10
 dependencies:
   - python=3.10
-  - black
-  - isort
   - matplotlib
   - ipykernel
   - scikit-learn
@@ -10,3 +8,5 @@ dependencies:
   - pip
   - pip:
     - sqlitedict
+    - black
+    - isort
