@@ -18,11 +18,22 @@ case "$1" in
     ${py310bin}/black *.py **/*.py
     ${py310bin}/isort *.py **/*.py
     ;;
-  format-staged)
+  gunzip)
+    gzip -dk results/db.sqlite.gz
+    ;;
+  pre-commit)
+    set -o xtrace
+    if [ -f results/db.sqlite ]; then
+      gzip -f9k results/db.sqlite
+      ls -s1h results/db.sqlite* || :
+      git add results/db.sqlite.gz
+    fi
     FILES=`git diff-index --cached --name-only HEAD | grep '.py$'`
-    ${py310bin}/black $FILES
-    ${py310bin}/isort $FILES
-    git add $FILES
+    if [ ! -z "$FILES" ]; then
+      ${py310bin}/black $FILES
+      ${py310bin}/isort $FILES
+      git add $FILES
+    fi
     ;;
   jupyter)
     jupyter $2;;
@@ -58,4 +69,7 @@ case "$1" in
     f 23086469 zinc_stock_17_04_20 &
     unset f
     wait
+    ;;
+  clean)
+    rm results/db.sqlite
 esac
