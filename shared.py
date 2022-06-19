@@ -21,6 +21,7 @@ Fn = Callable[[T], R]
 
 paracetamol_smiles = "CC(=O)Nc1ccc(O)cc1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # disable tensorflow warnings
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 project_dir = os.path.dirname(os.path.realpath(__file__))
 logger = logging.Logger(__name__)
 conda_dir = os.environ["CONDA_PREFIX"]
