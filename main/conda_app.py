@@ -36,7 +36,9 @@ def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]
 
     try:
         req = request.Request(
-            f"http://localhost:{port}", method="POST", data=json.dumps(data).encode(),
+            f"http://localhost:{port}",
+            method="POST",
+            data=json.dumps(data).encode(),
         )
         res = request.urlopen(req)
         return (False, json.loads(res.read()))

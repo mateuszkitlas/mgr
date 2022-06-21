@@ -195,7 +195,9 @@ class Tree:
 
     @staticmethod
     def from_ac(graph: Graph, db: Db):
-        def f(mols: Mols,) -> TreeFromGraph:
+        def f(
+            mols: Mols,
+        ) -> TreeFromGraph:
             return (
                 mols,
                 [f(child_mols) for child_mols in mols.expand_all(graph)],

@@ -167,7 +167,10 @@ class SCScorer:
         else:
             # Run
             (cur_score,) = self.session.run(
-                [self.score], feed_dict={self.input_mol: src_mols,}
+                [self.score],
+                feed_dict={
+                    self.input_mol: src_mols,
+                },
             )
             if v:
                 print("Score: {}".format(cur_score[0]))
@@ -193,7 +196,9 @@ def get_sc_scorer() -> Callable[[str], float]:
     model = SCScorer()
     model.build()
     model.restore(
-        os.path.join(project_dir, "scorers/scscore/models", "full_reaxys_model_1024bool"),
+        os.path.join(
+            project_dir, "scorers/scscore/models", "full_reaxys_model_1024bool"
+        ),
         "ckpt-10654",
     )
 

@@ -101,7 +101,6 @@ def disable_syba():
         return False
 
 
-
 class AppKilled(Exception):
     pass
 
@@ -123,7 +122,9 @@ def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]
 
     try:
         req = request.Request(
-            f"http://localhost:{port}", method="POST", data=json.dumps(data).encode(),
+            f"http://localhost:{port}",
+            method="POST",
+            data=json.dumps(data).encode(),
         )
         res = request.urlopen(req)
         return (False, json.loads(res.read()))
@@ -136,9 +137,6 @@ def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]
         return f(e)
     except Exception as e:
         return (True, e)
-
-
-
 
 
 class CondaApp(Generic[T, R]):
@@ -175,9 +173,11 @@ class CondaApp(Generic[T, R]):
 
     async def fetch(self, data: Optional[T]) -> R:
         if self.running():
-            return self._process_fetch(await get_event_loop().run_in_executor(
-                self.executor, _fetch, self.port, data
-            ))
+            return self._process_fetch(
+                await get_event_loop().run_in_executor(
+                    self.executor, _fetch, self.port, data
+                )
+            )
         else:
             raise AppKilled()
 

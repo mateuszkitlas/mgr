@@ -121,14 +121,15 @@ def normalize(first: float, second: float, inverted: bool, score: float):
 
 
 async def main():
-    conda_app = CondaApp[Tuple[str, List[str]], List[float]](
-        4002, "scorers", "scorers"
-    )
+    conda_app = CondaApp[Tuple[str, List[str]], List[float]](4002, "scorers", "scorers")
 
     async with conda_app as (_, fetch_sync):
         cache: Dict[Tuple[str, str], float] = {}
+
         def fetch(scoring: str, smileses: List[str]):
-            not_in_cache: list[str] = [smiles for smiles in smileses if (scoring, smiles) not in cache]
+            not_in_cache: list[str] = [
+                smiles for smiles in smileses if (scoring, smiles) not in cache
+            ]
             for smiles, score in zip(not_in_cache, fetch_sync((scoring, not_in_cache))):
                 cache[(scoring, smiles)] = score
             return (cache[(scoring, smiles)] for smiles in smileses)

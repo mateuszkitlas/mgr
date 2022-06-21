@@ -21,6 +21,7 @@ class Mol(NamedTuple):
     def __str__(self):
         return f"{self.smiles}, {self.name}, {self.desc}, {self.additional}, {self.synthesis}, {self.char}"
 
+
 @contextmanager
 def read_csv(filename: str, newline: Optional[str], delimiter: Optional[str]):
     with open(
