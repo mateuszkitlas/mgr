@@ -1,37 +1,27 @@
 import asyncio
 from contextlib import asynccontextmanager
-from typing import List, Literal, Tuple, Union
+from typing import List, Literal, Optional, Tuple
 
+from main.score import Score, Smiles
 from shared import CondaApp
 
 from .types import AcResult, AiInput, AiTree, Timed
 
 Scoring = Literal["sa", "sc", "ra", "syba", "mf"]
-all_scorings: List[Scoring] = ["sa", "sc", "ra", "syba", "mf"]
-
+all_scorings: list[Scoring] = ["sa", "sc", "ra", "syba", "mf"]
 
 @asynccontextmanager
 async def app_scorers():
-    app = CondaApp[Tuple[Union[Scoring, Literal["smiles"]], str], Union[float, str]](
-        4000, "scorers", "scorers"
-    )
-    try:
-        await app.start()
-
-        async def f(scoring: Scoring, smiles: str) -> float:
-            ret = await app.fetch((scoring, smiles))
-            assert isinstance(ret, float)
-            return ret
-
-        async def g(smiles: str) -> str:
-            ret = await app.fetch(("smiles", smiles))
-            assert isinstance(ret, str)
-            return ret
+    async with CondaApp[Tuple[str, List[str]], List[float]](4002, "scorers", "scorers") as (fetch, _):
+        async def f(scoring: Scoring, smiles: str):
+            return (await fetch((scoring, [smiles])))[0]
+        
+        async def g(data: Tuple[str, Optional[int]]):
+            s, t = data
+            sa, sc, ra, syba, mf = await asyncio.gather(f("sa", s), f("sc", s), f("ra", s), f("syba", s), f("mf", s))
+            return Smiles(s, Score(sa=sa, sc=sc, ra=ra, mf=mf, syba=syba), t)
 
         yield f, g
-    finally:
-        app.stop()
-
 
 @asynccontextmanager
 async def app_ai_ac():

@@ -1,12 +1,13 @@
 from asyncio import gather, run
+from contextlib import contextmanager
 from sys import argv
 
 from main.tree import Tree
-from shared import CondaApp
 
-from .data import Db, data
+from .data import Db, data, db_and_mols
 from .graph import Graph
 from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers
+from .tree import Tree
 from .types import AiInput, AiTree, Setup, Timed
 
 uw_multipliers = [0.15, 0.4, 0.6]
@@ -16,7 +17,7 @@ def n(first: float, second: float):
     return (first, second, False)
 
 
-setups: list[Setup] = [
+_setups: list[Setup] = [
     {
         "score": "sc",
         "uw_multiplier": 0.0,
@@ -55,25 +56,38 @@ setups: list[Setup] = [
 ]
 
 
-async def ac():
-    mols = data()
-    with Db() as db:
-        async with app_ac() as (fetch, _):
-            for j, mol in enumerate(mols):
-                print(f"[ac][mol {j}/{len(mols)}]")
-                await db.maybe_create(["ac", mol.smiles], lambda: fetch(mol.smiles))
-
+@contextmanager
+def ai_inputs():
+    with db_and_mols() as (db, mol, j, count):
+        for i, setup in enumerate(_setups):
+            print(f"[ai][setup {i}/{len(_setups)}][mol {j}/{count}]")
+            ai_input: AiInput = {"smiles": mol.smiles, "setup": setup}
+            yield db, ai_input
 
 async def ai():
-    mols = data()
-    with Db() as db:
-        async with app_ai() as (fetch, _):
-            for j, mol in enumerate(mols):
-                for i, setup in enumerate(setups):
-                    ai_input: AiInput = {"smiles": mol.smiles, "setup": setup}
-                    print(f"[ai][setup {i}/{len(setups)}][mol {j}/{len(mols)}]")
-                    await db.maybe_create(["ai", ai_input], lambda: fetch(ai_input))
+    async with app_ai() as (fetch, _):
+        with ai_inputs() as (db, ai_input):
+            await db.maybe_create(["ai", ai_input], lambda: fetch(ai_input))
 
+async def ai_postprocess():
+    with ai_inputs() as (db, ai_input):
+        async with app_scorers() as (_, smileser):
+            timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
+            if timed_ai_tree:
+                _, ai_tree = timed_ai_tree
+                async def f():
+                    tree = await Tree.from_ai(ai_tree, smileser)
+                    return tree.json()
+                await db.maybe_create(["ai_postprocess", ai_input], lambda: f())
+            else:
+                print("error")
+
+
+async def ac():
+    async with app_ac() as (fetch, _):
+        with db_and_mols() as (db, mol, j, count):
+            print(f"[ac][mol {j}/{count}]")
+            await db.maybe_create(["ac", mol.smiles], lambda: fetch(mol.smiles))
 
 async def score_ac_smileses():
     mols = data()
@@ -160,33 +174,6 @@ def ac_tag():
         print(f"{solved}/{len(all)}")
 
 
-if __name__ == "__main__":
-    if argv[1] == "ai_ac":
-        run(ai_ac())
-    elif argv[1] == "ac_tag":
-        ac_tag()
-    trees = load_trees(json_file)
-    done = {_hash(ai_input) for ai_input, _ in trees}
-    async with app_ai() as ai:  # , app_scorers() as scorer:
-        for j, mol in enumerate(mols):
-            for i, setup in enumerate(setups):
-                ai_input: AiInput = {"smiles": mol.smiles, "setup": setup}
-                txt = f"[setup {i}/{len(setups)}][mol {j}/{len(mols)}]"
-                if _hash(ai_input) in done:
-                    print(f"{txt}[skipped]")
-                else:
-                    print(f"{txt} ", end="", flush=True)
-                    ai_tree = await ai.tree(setup, mol.smiles)
-                    # print(f"][from_ai...", end = "", flush=True)
-                    # real_time, tree = await Timer.acalc(
-                    #     Tree.from_ai(ai_tree, scorer.score)
-                    # )
-                    # scorer.add_real_time(real_time)
-                    # trees.append((ai_input, tree.json()))
-                    trees.append((ai_input, ai_tree))
-                    save_trees(trees, json_file)
-
-
 def dummy_scorings():
     trees = load_trees(json_file)
     per_mol: dict[str, list[Tuple[Setup, Tree]]] = {
@@ -215,12 +202,4 @@ def dummy_scorings():
                 },
             )
 
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "dummy_scorings":
-        dummy_scorings()
-    elif len(sys.argv) == 1:
-        run(main())
-    else:
-        print("invalid sys.argv")
 """

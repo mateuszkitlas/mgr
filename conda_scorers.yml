@@ -11,4 +11,5 @@ dependencies:
   - syba
   - pip:
     - git+https://github.com/reymond-group/RAscore.git@master
-  - scikit-learn=0.24.2
+    - sqlitedict
+  - scikit-learn=1.0.2

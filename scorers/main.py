@@ -1,8 +1,8 @@
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from shared import (Fn, Timer, disable_mf, disable_syba, paracetamol_smiles,
+from shared import (Db, Fn, disable_mf, disable_syba, paracetamol_smiles,
                     project_dir, serve)
 
 Scorer = Fn[str, float]
@@ -87,39 +87,36 @@ def get_sa_scorer() -> Scorer:
 
     return scorer
 
+def get_smileser() -> Fn[str, str]:
+    from rdkit import Chem
+
+    def scorer(smiles: str):
+        return Chem.SmilesFromMol(Chem.MolFromSmiles(smiles))
+
+    return scorer
+
 
 if __name__ == "__main__":
-    ra_time, ra_scorer = Timer.calc(lambda: get_ra_scorer("DNN", "chembl"))
-    sa_time, sa_scorer = Timer.calc(get_sa_scorer)
-    sc_time, sc_scorer = Timer.calc(get_sc_scorer)
-    mf_time, mf_scorer = Timer.calc(get_mf_scorer)
-    syba_time, syba_scorer = Timer.calc(get_syba_scorer)
-
-    # print(f"Loading times: {times}")
     scorers = {
-        "ra": ra_scorer,
-        "sa": sa_scorer,
-        "sc": sc_scorer,
-        "mf": mf_scorer,
-        "syba": syba_scorer,
+        "ra": get_ra_scorer("DNN", "chembl"),
+        "sa": get_sa_scorer(),
+        "sc": get_sc_scorer(),
+        "mf": get_mf_scorer(),
+        "syba": get_syba_scorer(),
     }
-    keys = scorers.keys()
-    cache: Dict[str, Dict[str, float]] = {key: {} for key in keys}
+    smileser = get_smileser()
+    with Db("scores") as db:
+        def get(type: str, smiles: str):
+            smiles_canon = db.read_or_create_sync(["smiles", smiles], lambda: smileser(smiles))
+            return db.read_or_create_sync([type, smiles_canon], lambda: scorers[type](smiles_canon))
 
-    def get(type: str, smiles: str):
-        v = cache[type].get(smiles)
-        if v is None:
-            w = scorers[type](smiles)
-            cache[type][smiles] = w
-            return w
-        return v
+        def scorer(data: Optional[Tuple[str, List[str]]]):
+            if data:
+                type, smileses = data
+                return [get(type, smiles) for smiles in smileses]
 
-    def scorer(data: Optional[Tuple[str, List[str]]]):
-        if data:
-            type, smileses = data
-            return [get(type, smiles) for smiles in smileses]
+        for key in scorers.keys():
+            scorer((key, [paracetamol_smiles])) # preprocess
+            scorer((key, [paracetamol_smiles])) # read
 
-    for key in keys:
-        scorer((key, [paracetamol_smiles]))  # warm up
-
-    serve(scorer)
+        serve(scorer)

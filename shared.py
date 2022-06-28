@@ -231,3 +231,51 @@ class CondaApp(Generic[T, R]):
 
     async def __aexit__(self, *_: Any):
         self.stop()
+
+
+
+class Db:
+    def __init__(self, name: str):
+        from sqlitedict import SqliteDict
+        self.db = SqliteDict(
+            f"{project_dir}/results/{name}.sqlite", outer_stack=False, autocommit=True
+        )
+
+    def _write(self, raw_key: str, value: T) -> T:
+        self.db[raw_key] = json.dumps(value, sort_keys=True)
+        return value
+
+    async def maybe_create(self, key: Any, f: Callable[[], Awaitable[Any]]):
+        raw_key = json.dumps(key, sort_keys=True)
+        if raw_key not in self.db:
+            self._write(raw_key, await f())
+
+    def read_or_create_sync(
+        self, key: Any, f: Callable[[], T]
+    ) -> T:
+        raw_key = json.dumps(key, sort_keys=True)
+        return (
+            self.db[raw_key] if raw_key in self.db else self._write(raw_key, f())
+        )
+
+    async def read_or_create(
+        self, key: Any, f: Callable[[], Awaitable[T]]
+    ) -> Awaitable[T]:
+        
+        raw_key = json.dumps(key, sort_keys=True)
+        return (
+            self.db[raw_key] if raw_key in self.db else self._write(raw_key, await f())
+        )
+
+    def read(self, key: Any, type: Type[T]) -> Union[T, None]:
+        return cast(type, json.loads(self.db.get(json.dumps(key, sort_keys=True), "null")))
+
+    def write(self, key: Any, value: Any):
+        self._write(json.dumps(key, sort_keys=True), value)
+
+    def __enter__(self):
+        self.db.__enter__()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.db.close()

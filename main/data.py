@@ -1,7 +1,8 @@
 import csv
 import json
 from contextlib import contextmanager
-from typing import Any, Awaitable, Callable, NamedTuple, Optional, TypeVar
+from typing import (Any, Awaitable, Callable, NamedTuple, Optional, Type,
+                    TypeVar, Union, cast)
 
 from sqlitedict import SqliteDict
 
@@ -36,6 +37,13 @@ def data():
     with read_csv("data.csv", None, None) as reader:
         return [Mol(*row) for row in reader]
 
+@contextmanager
+def db_and_mols():
+    with Db() as db:
+        mols = data()
+        count = len(mols)
+        for i, mol in enumerate(mols):
+            yield db, mol, i, count
 
 class Db:
     def __init__(self):
@@ -60,8 +68,8 @@ class Db:
             self.db[raw_key] if raw_key in self.db else self._write(raw_key, await f())
         )
 
-    def read(self, key: Any) -> Any:
-        return json.loads(self.db.get(json.dumps(key, sort_keys=True), "null"))
+    def read(self, key: Any, type: Type[T]) -> Union[T, None]:
+        return cast(type, json.loads(self.db.get(json.dumps(key, sort_keys=True), "null")))
 
     def write(self, key: Any, value: Any):
         self._write(json.dumps(key, sort_keys=True), value)
