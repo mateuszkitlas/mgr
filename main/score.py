@@ -1,6 +1,5 @@
 from typing import Optional, Tuple, TypedDict
 
-from main.data import Db
 from shared import Fn
 
 from .utils import serialize_dict

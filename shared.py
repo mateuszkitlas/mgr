@@ -11,7 +11,7 @@ from http.client import RemoteDisconnected
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from inspect import getframeinfo, stack
 from socketserver import ThreadingMixIn
-from typing import Any, Awaitable, Callable, Generic, Optional, Tuple, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, Tuple, Type, TypeVar, Union, cast
 from urllib import request
 from urllib.error import URLError
 
@@ -235,10 +235,10 @@ class CondaApp(Generic[T, R]):
 
 
 class Db:
-    def __init__(self, name: str):
+    def __init__(self, name: str, readonly: bool):
         from sqlitedict import SqliteDict
         self.db = SqliteDict(
-            f"{project_dir}/results/{name}.sqlite", outer_stack=False, autocommit=True
+            f"{project_dir}/results/{name}.sqlite", outer_stack=False, autocommit=True, flag="r" if readonly else "c"
         )
 
     def _write(self, raw_key: str, value: T) -> T:
@@ -255,7 +255,7 @@ class Db:
     ) -> T:
         raw_key = json.dumps(key, sort_keys=True)
         return (
-            self.db[raw_key] if raw_key in self.db else self._write(raw_key, f())
+            cast(T, self._read(raw_key, type(T))) if raw_key in self.db else self._write(raw_key, f())
         )
 
     async def read_or_create(
@@ -267,11 +267,17 @@ class Db:
             self.db[raw_key] if raw_key in self.db else self._write(raw_key, await f())
         )
 
+    def _read(self, raw_key: Any, type: Type[T]) -> Union[T, None]:
+        return cast(type, json.loads(self.db.get(raw_key, "null")))
+
     def read(self, key: Any, type: Type[T]) -> Union[T, None]:
-        return cast(type, json.loads(self.db.get(json.dumps(key, sort_keys=True), "null")))
+        return self._read(json.dumps(key, sort_keys=True), type)
 
     def write(self, key: Any, value: Any):
         self._write(json.dumps(key, sort_keys=True), value)
+
+    def as_json(self):
+        return json.dumps({k: v for k, v in self.db.iteritems()}, indent=2)
 
     def __enter__(self):
         self.db.__enter__()

@@ -12,4 +12,4 @@ dependencies:
   - pip:
     - git+https://github.com/reymond-group/RAscore.git@master
     - sqlitedict
-  - scikit-learn=1.0.2
+  - scikit-learn=1.0.2 # install manually later

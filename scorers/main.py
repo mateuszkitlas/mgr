@@ -91,7 +91,7 @@ def get_smileser() -> Fn[str, str]:
     from rdkit import Chem
 
     def scorer(smiles: str):
-        return Chem.SmilesFromMol(Chem.MolFromSmiles(smiles))
+        return Chem.MolToSmiles(Chem.MolFromSmiles(smiles))
 
     return scorer
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         "syba": get_syba_scorer(),
     }
     smileser = get_smileser()
-    with Db("scores") as db:
+    with Db("scores", False) as db:
         def get(type: str, smiles: str):
             smiles_canon = db.read_or_create_sync(["smiles", smiles], lambda: smileser(smiles))
             return db.read_or_create_sync([type, smiles_canon], lambda: scorers[type](smiles_canon))

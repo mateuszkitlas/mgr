@@ -3,7 +3,7 @@
 export CONDA_PREFIX=`which conda | xargs dirname | xargs dirname`
 py310bin="${CONDA_PREFIX}/envs/py3.10/bin"
 jupyter(){
-  "${py310bin}/jupyter" nbconvert --execute --to notebook --inplace $1
+  "${py310bin}/jupyter-nbconvert" --theme=dark --execute --to notebook --inplace $1
 }
 module(){
   "${py310bin}/python" -m "$@"
@@ -23,7 +23,8 @@ f() {
       conda env create -f askcos-core/environment.yml
       ;;
     main)
-      module main.main "$2"
+      shift
+      module main.main "$@"
       ;;
     test)
       module main.test
@@ -37,20 +38,24 @@ f() {
       ;;
     pre-commit)
       set -o xtrace
-      if [ -f results/db.sqlite ]; then
-        gzip -f9k results/db.sqlite
-        ls -s1h results/db.sqlite* || :
-        git add results/db.sqlite.gz
-      fi
-      FILES=`git diff-index --cached --name-only HEAD | grep '.py$'`
-      if [ ! -z "$FILES" ]; then
-        ${py310bin}/black $FILES
-        ${py310bin}/isort $FILES
-        git add $FILES
-      fi
+      for NAME in db scorers; do
+        if [ -f results/$NAME.sqlite ]; then
+          gzip -f9k results/$NAME.sqlite
+          ls -s1h results/$NAME.sqlite* || :
+          git add results/$NAME.sqlite.gz
+        fi
+      done
+      for PYFILE in `git diff-index --cached --name-only HEAD | grep '.py$'`; do
+        if [ -f "$PYFILE" ]; then
+          ${py310bin}/black $FILES
+          ${py310bin}/isort $FILES
+          git add $FILES
+        fi
+      done
       ;;
     jupyter)
-      jupyter $2
+      jupyter stats.ipynb
+      jupyter stats_selected.ipynb
       ;;
     git-submodules)
       git submodule update --init --recursive

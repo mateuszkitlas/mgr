@@ -9,13 +9,15 @@ from matplotlib.ticker import FormatStrFormatter
 from scipy.stats import spearmanr
 from sklearn import metrics
 
-from main.data import Db, data
-from main.graph import Graph
-from shared import Fn
+from main.data import Mol
+from .ai import ai_input_gen
+
+from .types import AiInput
+from shared import Fn, Db
 
 from .score import Score
-from .tree import Tree, TreeTypes, sum_tree_stats
-from .utils import flatten, serialize_dict
+from .tree import JsonTree, Tree, TreeTypes, sum_tree_stats
+from .utils import flatten, not_none, serialize_dict
 
 matplotlib.rc("font", size=5)
 
@@ -137,24 +139,24 @@ def _hist(
 
 
 def input_data(detailed: bool):
-    mols = data()
-    with Db() as db:
-        with_nones = ((mol, db.read(["ac", mol.smiles])) for mol in mols)
-        graphs = ((mol, Graph.from_ac_result(data)) for (mol, data) in with_nones)
-        mols = [(mol, Tree.from_ac(graph, db)) for (mol, graph) in graphs]
-        solved_count = sum((root.type == "internal" for _, root in mols))
-        not_solved_count = sum((root.type == "not_solved" for _, root in mols))
-        all_count = len(mols)
-        assert sum((root.type == "solved" for _, root in mols)) == 0
-        assert (solved_count + not_solved_count) == all_count
-        sum_stats = sum_tree_stats([root.stats() for _, root in mols])
-        yield (
-            [root for _, root in mols],
-            f"ALL ({solved_count}/{all_count} solved); {json.dumps(sum_stats, indent=2)}",
-        )
-        if detailed:
-            for mol, root in mols:
-                yield ([root], f"{mol.name}; {json.dumps(root.stats(), indent=2)}")
+    def f(db: Db, ai_input: AiInput, mol: Mol):
+        json_tree = db.read(["ai_postprocess", ai_input], JsonTree)
+        if json_tree:
+            return Tree(json_tree), mol
+    data = list(not_none(f(db, ai_input, mol) for db, ai_input, mol in ai_input_gen(True, True)))
+    solved_count = sum((root.type == "internal" for root, _mol in data))
+    not_solved_count = sum((root.type == "not_solved" for root, _mol in data))
+    all_count = len(data)
+    assert sum((root.type == "solved" for root, _mol in data)) == 0
+    assert (solved_count + not_solved_count) == all_count
+    sum_stats = sum_tree_stats([root.stats() for root, _mol in data])
+    yield (
+        [root for root, _mol in data],
+        f"ALL ({solved_count}/{all_count} solved); {json.dumps(sum_stats, indent=2)}",
+    )
+    if detailed:
+        for root, mol in data:
+            yield ([root], f"{mol.name}; {json.dumps(root.stats(), indent=2)}")
 
 
 def _tree_to_float(

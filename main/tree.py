@@ -1,16 +1,13 @@
 from asyncio import gather, run
 from itertools import chain
-from random import random
 from typing import (Awaitable, Iterable, Literal, Optional, TypedDict, TypeVar,
                     Union)
 
-from main.data import Db
-from main.graph import Graph
 from shared import Fn
 
 from .score import JsonSmiles, Score, Smiles
 from .types import AiTree
-from .utils import flatten, not_none
+from .utils import flatten
 
 T = TypeVar("T")
 Scorer = Fn[tuple[str, Optional[int]], Awaitable[Smiles]]
@@ -34,43 +31,6 @@ class Mols:
             self._in_stock = set()
             self._expanded = set()
             self.expands = None
-
-    def dump(self, db: Db):
-        def f(s: set[str]):
-            # TODO transforms
-            return [Smiles.from_db(smiles, None, db) for smiles in s]
-
-        return f(self._expandable), f(self._in_stock)
-
-    def _expand(self, expandable_smiles: str, smarts: str, graph: Graph):
-        substrates = [
-            substrate
-            for substrate in graph.substrates(smarts)
-            if substrate not in self._expanded
-            and substrate not in self._in_stock
-            and substrate not in self._expandable
-        ]
-        mols = Mols((self, expandable_smiles))
-        mols._expanded.add(expandable_smiles)
-        if substrates:
-            mols._expandable.remove(expandable_smiles)
-            mols._in_stock.add(expandable_smiles)
-            for substrate, buyable in substrates:
-                if buyable:
-                    mols._in_stock.add(substrate)
-                else:
-                    mols._expandable.add(substrate)
-        return mols
-
-    def expand_all(self, graph: Graph):
-        return not_none(
-            self._expand(expandable_smiles, smarts, graph)
-            for expandable_smiles in (self._expandable - self._expanded)
-            for smarts in graph.out_nodes(expandable_smiles)
-        )
-
-
-TreeFromGraph = tuple[Mols, list["TreeFromGraph"]]
 
 
 class _Tree:
@@ -193,25 +153,7 @@ class Tree:
         await _tree.assign_scores_rec(f)
         return Tree(_tree)
 
-    @staticmethod
-    def from_ac(graph: Graph, db: Db):
-        def f(
-            mols: Mols,
-        ) -> TreeFromGraph:
-            return (
-                mols,
-                [f(child_mols) for child_mols in mols.expand_all(graph)],
-            )
-
-        t = Tree((f(Mols(graph.root)), db))
-        if t.type == "not_solved":
-            if graph.ac_paths_count:
-                print(
-                    f"invalid tree from graph. there should be at least {graph.ac_paths_count} paths"
-                )
-        return t
-
-    def __init__(self, t: Union[_Tree, JsonTree, tuple[TreeFromGraph, Db]]):
+    def __init__(self, t: Union[_Tree, JsonTree]):
         self.type: TreeTypes
         self.expandable: list[Smiles]
         self.in_stock: list[Smiles]
@@ -228,24 +170,6 @@ class Tree:
             self.children = [Tree(c) for c in t.children]
             self.type = t.type
             self.not_solved_depth = t.not_solved_depth
-        elif isinstance(t, tuple):
-            (mols, tfgs), db = t
-            self.expandable, self.in_stock = mols.dump(db)
-            self.ai_score = random()  # TODO
-            self.children = [Tree((tfg, db)) for tfg in tfgs]
-            self.type = (
-                (
-                    "internal"
-                    if any(
-                        tree.type == "solved" or tree.type == "internal"
-                        for tree in self.children
-                    )
-                    else "not_solved"
-                )
-                if self.expandable
-                else "solved"
-            )
-            self.not_solved_depth = 0  # TODO
         else:
             self.expandable = [Smiles.from_json(s) for s in t["expandable"]]
             self.in_stock = [Smiles.from_json(s) for s in t["in_stock"]]

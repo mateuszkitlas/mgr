@@ -6,6 +6,7 @@ dependencies:
   - scikit-learn
   - networkx
   - pip
+  - nbconvert
   - pip:
     - sqlitedict
     - black

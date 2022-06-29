@@ -9,3 +9,5 @@ results/trees_v3.json
 results/trees_with_setups.json
 results/db.sqlite
 results/db.sqlite.bak
+results/scores.sqlite
+results/scores.sqlite.bak
