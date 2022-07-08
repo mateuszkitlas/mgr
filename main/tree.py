@@ -1,4 +1,5 @@
 from asyncio import gather, run
+from collections import defaultdict
 from itertools import chain
 from typing import (Awaitable, Iterable, Literal, Optional, TypedDict, TypeVar,
                     Union)
@@ -94,6 +95,10 @@ class TreeStats(TypedDict):
     internal: NodeStats
     solved: NodeStats
     not_solved: dict[int, NodeStats]
+    max_depth: int
+    max_width: int
+    node_count: int
+    not_solved_count: int
 
 
 zero_node_stats: NodeStats = {
@@ -122,6 +127,10 @@ def sum_tree_stats(l: list[TreeStats]) -> TreeStats:
             )
             for depth in range(max_depth + 1)
         },
+        "max_depth": max(e["max_depth"] for e in l),
+        "max_width": max(e["max_width"] for e in l),
+        "node_count": sum(e["node_count"] for e in l),
+        "not_solved_count": sum(e["not_solved_count"] for e in l),
     }
 
 
@@ -205,7 +214,7 @@ class Tree:
     def stats(self) -> TreeStats:
         internal = [n for n in self.all_nodes() if n.type == "internal"]
         solved = [n for n in self.all_nodes() if n.type == "solved"]
-        max_depth = max(n.not_solved_depth for n in self.all_nodes())
+        max_not_solved_depth = max(n.not_solved_depth for n in self.all_nodes())
         not_solved = [n for n in self.all_nodes() if n.type == "not_solved"]
 
         def node_stats(nodes: list[Tree]) -> NodeStats:
@@ -215,6 +224,23 @@ class Tree:
                 "in_stock": sum((len(n.in_stock) for n in nodes)),
             }
 
+        def max_depth(t: Tree, acc: int) -> int:
+            return max((max_depth(c, acc + 1) for c in t.children), default=acc)
+
+        def max_width(t: Tree):
+            acc: dict[int, int] = defaultdict(lambda: 0)
+
+            def f(u: Tree, level: int):
+                acc[level] += len(u.children)
+                for w in u.children:
+                    f(w, level + 1)
+
+            f(t, 0)
+            return max(acc.values())
+
+        def node_count(t: Tree) -> int:
+            return 1 + sum(node_count(c) for c in t.children)
+
         return {
             "internal": node_stats(internal),
             "solved": node_stats(solved),
@@ -222,6 +248,10 @@ class Tree:
                 depth: node_stats(
                     [n for n in not_solved if n.not_solved_depth == depth]
                 )
-                for depth in range(max_depth + 1)
+                for depth in range(max_not_solved_depth + 1)
             },
+            "max_depth": max_depth(self, 0),
+            "max_width": max_width(self),
+            "node_count": node_count(self),
+            "not_solved_count": len([n for n in not_solved if n.not_solved_depth == 0]),
         }

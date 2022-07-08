@@ -87,6 +87,7 @@ def get_sa_scorer() -> Scorer:
 
     return scorer
 
+
 def get_smileser() -> Fn[str, str]:
     from rdkit import Chem
 
@@ -106,9 +107,14 @@ if __name__ == "__main__":
     }
     smileser = get_smileser()
     with Db("scores", False) as db:
+
         def get(type: str, smiles: str):
-            smiles_canon = db.read_or_create_sync(["smiles", smiles], lambda: smileser(smiles))
-            return db.read_or_create_sync([type, smiles_canon], lambda: scorers[type](smiles_canon))
+            smiles_canon = db.read_or_create_sync(
+                ["smiles", smiles], lambda: smileser(smiles)
+            )
+            return db.read_or_create_sync(
+                [type, smiles_canon], lambda: scorers[type](smiles_canon)
+            )
 
         def scorer(data: Optional[Tuple[str, List[str]]]):
             if data:
@@ -116,7 +122,7 @@ if __name__ == "__main__":
                 return [get(type, smiles) for smiles in smileses]
 
         for key in scorers.keys():
-            scorer((key, [paracetamol_smiles])) # preprocess
-            scorer((key, [paracetamol_smiles])) # read
+            scorer((key, [paracetamol_smiles]))  # preprocess
+            scorer((key, [paracetamol_smiles]))  # read
 
         serve(scorer)

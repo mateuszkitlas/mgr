@@ -1,27 +1,31 @@
-from asyncio import gather, run
 import json
+from asyncio import gather, run
 from sys import argv
 from typing import Callable, Coroutine
-from .ai import ai_input_gen
 
+from shared import Db
+
+from .ai import ai_input_gen
 from .data import data
 from .graph import Graph
 from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers
 from .tree import Tree
 from .types import AiTree, Timed
-from shared import Db
 
 methods: dict[str, Callable[[], Coroutine[None, None, None]]] = {}
+
 
 def use(fn: Callable[[], Coroutine[None, None, None]]):
     methods[fn.__name__] = fn
     return fn
+
 
 @use
 async def ai():
     async with app_ai() as (fetch, _):
         for db, ai_input, _mol in ai_input_gen(False, False):
             await db.maybe_create(["ai", ai_input], lambda: fetch(ai_input))
+
 
 @use
 async def ai_postprocess():
@@ -30,12 +34,15 @@ async def ai_postprocess():
             timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
             if timed_ai_tree:
                 _, ai_tree = timed_ai_tree
+
                 async def f():
                     tree = await Tree.from_ai(ai_tree, smileser)
                     return tree.json()
+
                 await db.maybe_create(["ai_postprocess", ai_input], lambda: f())
             else:
                 print("error")
+
 
 @use
 async def ac():
@@ -43,6 +50,7 @@ async def ac():
         with db_and_mols() as (db, mol, j, count):
             print(f"[ac][mol {j}/{count}]")
             await db.maybe_create(["ac", mol.smiles], lambda: fetch(mol.smiles))
+
 
 @use
 async def score_ac_smileses():
@@ -73,6 +81,7 @@ async def score_ac_smileses():
 
             await gather(*[f(smiles) for smiles in smileses])
 
+
 @use
 async def ac_graph_to_tree():
     mols = data()
@@ -82,10 +91,12 @@ async def ac_graph_to_tree():
         for graph in graphs:
             print(Tree.from_ac(graph, db).stats())
 
+
 @use
 async def cat_db():
     with Db(argv[2], True) as db:
         print(db.as_json())
+
 
 @use
 async def ra_scores():
@@ -96,6 +107,7 @@ async def ra_scores():
                 val = json.loads(v)
                 if val < 0.0 or val > 1.0:
                     print(val)
+
 
 if __name__ == "__main__":
     method = methods.get(argv[1])

@@ -10,13 +10,12 @@ from scipy.stats import spearmanr
 from sklearn import metrics
 
 from main.data import Mol
+from shared import Db, Fn
+
 from .ai import ai_input_gen
-
-from .types import AiInput
-from shared import Fn, Db
-
 from .score import Score
 from .tree import JsonTree, Tree, TreeTypes, sum_tree_stats
+from .types import AiInput
 from .utils import flatten, not_none, serialize_dict
 
 matplotlib.rc("font", size=5)
@@ -143,7 +142,10 @@ def input_data(detailed: bool):
         json_tree = db.read(["ai_postprocess", ai_input], JsonTree)
         if json_tree:
             return Tree(json_tree), mol
-    data = list(not_none(f(db, ai_input, mol) for db, ai_input, mol in ai_input_gen(True, True)))
+
+    data = list(
+        not_none(f(db, ai_input, mol) for db, ai_input, mol in ai_input_gen(True, True))
+    )
     solved_count = sum((root.type == "internal" for root, _mol in data))
     not_solved_count = sum((root.type == "not_solved" for root, _mol in data))
     all_count = len(data)

@@ -11,7 +11,8 @@ from http.client import RemoteDisconnected
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from inspect import getframeinfo, stack
 from socketserver import ThreadingMixIn
-from typing import Any, Awaitable, Callable, Generic, Optional, Tuple, Type, TypeVar, Union, cast
+from typing import (Any, Awaitable, Callable, Generic, Optional, Tuple, Type,
+                    TypeVar, Union, cast)
 from urllib import request
 from urllib.error import URLError
 
@@ -233,12 +234,15 @@ class CondaApp(Generic[T, R]):
         self.stop()
 
 
-
 class Db:
     def __init__(self, name: str, readonly: bool):
         from sqlitedict import SqliteDict
+
         self.db = SqliteDict(
-            f"{project_dir}/results/{name}.sqlite", outer_stack=False, autocommit=True, flag="r" if readonly else "c"
+            f"{project_dir}/results/{name}.sqlite",
+            outer_stack=False,
+            autocommit=True,
+            flag="r" if readonly else "c",
         )
 
     def _write(self, raw_key: str, value: T) -> T:
@@ -250,18 +254,18 @@ class Db:
         if raw_key not in self.db:
             self._write(raw_key, await f())
 
-    def read_or_create_sync(
-        self, key: Any, f: Callable[[], T]
-    ) -> T:
+    def read_or_create_sync(self, key: Any, f: Callable[[], T]) -> T:
         raw_key = json.dumps(key, sort_keys=True)
         return (
-            cast(T, self._read(raw_key, type(T))) if raw_key in self.db else self._write(raw_key, f())
+            cast(T, self._read(raw_key, type(T)))
+            if raw_key in self.db
+            else self._write(raw_key, f())
         )
 
     async def read_or_create(
         self, key: Any, f: Callable[[], Awaitable[T]]
     ) -> Awaitable[T]:
-        
+
         raw_key = json.dumps(key, sort_keys=True)
         return (
             self.db[raw_key] if raw_key in self.db else self._write(raw_key, await f())

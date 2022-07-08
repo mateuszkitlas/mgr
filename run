@@ -47,9 +47,9 @@ f() {
       done
       for PYFILE in `git diff-index --cached --name-only HEAD | grep '.py$'`; do
         if [ -f "$PYFILE" ]; then
-          ${py310bin}/black $FILES
-          ${py310bin}/isort $FILES
-          git add $FILES
+          ${py310bin}/black $PYFILE
+          ${py310bin}/isort $PYFILE
+          git add $PYFILE
         fi
       done
       ;;
