@@ -1,4 +1,3 @@
-import inspect
 import json
 from typing import Any, Optional, Tuple, TypeVar
 
@@ -16,7 +15,7 @@ from .ai import ai_input_gen
 from .score import Score
 from .tree import JsonTree, Tree, TreeTypes, sum_tree_stats
 from .types import AiInput
-from .utils import flatten, not_none, serialize_dict
+from .utils import flatten, fn_txt, not_none, serialize_dict
 
 matplotlib.rc("font", size=5)
 
@@ -73,10 +72,6 @@ def _pairs_parent_child(
             (pair(parent) for parent in _all_nodes(roots) if parent.type in parenttype)
         )
     )
-
-
-def _fn_txt(fn: Fn[Any, Any]):
-    return inspect.getsource(fn).replace("\n", "")
 
 
 def display_str(data: str):
@@ -187,7 +182,7 @@ def scatter_pairs(
             title = f"""
 # scatter plot of x_y_pairs
 
-tree_to_scores = {_fn_txt(tree_to_scores)}
+tree_to_scores = {fn_txt(tree_to_scores)}
 
 for every tree in source:
   for every node in tree:
@@ -233,7 +228,7 @@ def histogram_pairs_siblings(
             title = f"""
 # histogram of x
 
-tree_to_scores = {_fn_txt(tree_to_scores)}
+tree_to_scores = {fn_txt(tree_to_scores)}
 
 for every tree in source:
   for every node in tree:
@@ -270,7 +265,7 @@ def histogram_pairs_parent_child(
             title = f"""
 # histogram of x
 
-tree_to_scores = {_fn_txt(tree_to_scores)}
+tree_to_scores = {fn_txt(tree_to_scores)}
 
 for every tree in source:
   for every node in tree:
@@ -306,7 +301,7 @@ def boxplot_scores(
         title = f"""
 # boxplots of left_min, left_max, left_avg, right_min, right_max, right_avg
 
-tree_to_scores = {_fn_txt(tree_to_scores)}
+tree_to_scores = {fn_txt(tree_to_scores)}
 
 for every tree in source:
   for every node in tree:
@@ -359,7 +354,7 @@ def histogram_top_bottom(
         title = f"""
 # histogram of top, bottom
 
-tree_to_scores = {_fn_txt(tree_to_scores)}
+tree_to_scores = {fn_txt(tree_to_scores)}
 score = {score_name}
 
 for every tree in source:

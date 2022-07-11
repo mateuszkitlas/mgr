@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Optional, TypedDict, TypeVar, Union
+import inspect
+from typing import Any, Callable, Iterable, Optional, TypedDict, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -17,3 +18,7 @@ def serialize_dict(d: Union[dict[str, Any], TypedDict], sep: str):
 
 def human_json(d: Union[dict[str, Any], TypedDict]):
     return "{" + serialize_dict(d, ", ") + "}"
+
+
+def fn_txt(fn: Callable[[Any], Any]):
+    return inspect.getsource(fn).replace("\n", "")
