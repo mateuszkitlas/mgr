@@ -11,4 +11,3 @@ dependencies:
   - pip:
     - sqlitedict
     - black
-    - isort

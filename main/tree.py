@@ -1,12 +1,11 @@
 from asyncio import gather, run
 from collections import defaultdict
 from itertools import chain
-from typing import (Awaitable, Iterable, Literal, Optional, TypedDict, TypeVar,
-                    Union)
+from typing import Awaitable, Iterable, Literal, Optional, TypedDict, TypeVar, Union
 
 from shared import Fn
 
-from .score import JsonSmiles, Score, Smiles
+from .score import DictSmiles, Score, Smiles
 from .types import AiTree
 from .utils import flatten
 
@@ -135,8 +134,8 @@ def sum_tree_stats(l: list[TreeStats]) -> TreeStats:
 
 
 class JsonTree(TypedDict):
-    expandable: list[JsonSmiles]
-    in_stock: list[JsonSmiles]
+    expandable: list[DictSmiles]
+    in_stock: list[DictSmiles]
     ai_score: float
     children: list["JsonTree"]
     type: TreeTypes
@@ -150,7 +149,7 @@ class Tree:
         _tree.assign_not_solved_depth()
 
         async def f(x: tuple[str, Optional[int]]) -> Smiles:
-            return Smiles(x[0], Score(0.0, 0.0, 0.0, 0.0, 0.0), x[1])
+            return Smiles(x[0], Score(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), x[1])
 
         run(_tree.assign_scores_rec(f))
         return Tree(_tree)
@@ -203,8 +202,8 @@ class Tree:
 
     def json(self) -> JsonTree:
         return {
-            "expandable": [s.json() for s in self.expandable],
-            "in_stock": [s.json() for s in self.in_stock],
+            "expandable": [s.as_dict() for s in self.expandable],
+            "in_stock": [s.as_dict() for s in self.in_stock],
             "ai_score": self.ai_score,
             "children": [c.json() for c in self.children],
             "type": self.type,

@@ -9,6 +9,7 @@ dependencies:
   - rdkit
   - pip
   - syba
+  - lightgbm
   - pip:
     - git+https://github.com/reymond-group/RAscore.git@master
     - sqlitedict

@@ -1,7 +1,6 @@
 import asyncio
 import os
-from typing import (Any, Callable, Dict, List, Literal, Optional, Tuple,
-                    TypedDict)
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, TypedDict
 
 import numpy as np
 

@@ -1,4 +1,3 @@
-import concurrent.futures
 import datetime
 import json
 import logging
@@ -6,25 +5,36 @@ import os
 import subprocess
 import sys
 import traceback
-from asyncio import get_event_loop, sleep
+from asyncio import Future, get_event_loop, sleep
+from concurrent.futures import ThreadPoolExecutor
 from http.client import RemoteDisconnected
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from inspect import getframeinfo, stack
 from socketserver import ThreadingMixIn
-from typing import (Any, Awaitable, Callable, Generic, Optional, Tuple, Type,
-                    TypeVar, Union, cast)
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Generic,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    cast,
+)
 from urllib import request
 from urllib.error import URLError
 
 T = TypeVar("T")
 R = TypeVar("R")
 Fn = Callable[[T], R]
+_U = TypeVar("_U")
 
 paracetamol_smiles = "CC(=O)Nc1ccc(O)cc1"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # disable tensorflow warnings
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 project_dir = os.path.dirname(os.path.realpath(__file__))
 logger = logging.Logger(__name__)
+logger.setLevel(logging.DEBUG)
 conda_dir = os.environ["CONDA_PREFIX"]
 
 
@@ -58,9 +68,10 @@ def _serve(port: int, callback: Fn[Any, Any]):
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length).decode("utf-8")
             try:
-                in_data = json.loads(post_data)
-                out_data = callback(in_data)
-                result = (False, out_data)
+                result = (
+                    False,
+                    None if post_data == "status" else callback(json.loads(post_data)),
+                )
             except Exception as e:
                 result = (
                     True,
@@ -68,13 +79,16 @@ def _serve(port: int, callback: Fn[Any, Any]):
                         traceback.format_exception(type(e), value=e, tb=e.__traceback__)
                     ),
                 )
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(result).encode("utf-8"))
+            try:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode("utf-8"))
+            except BrokenPipeError:
+                pass
 
     class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-        """Handle requests in a separate thread."""
+        pass
 
     httpd = ThreadedHTTPServer(("localhost", port), S)
     httpd.serve_forever()
@@ -82,24 +96,6 @@ def _serve(port: int, callback: Fn[Any, Any]):
 
 def serve(callback: Fn[Any, Any]):
     _serve(int(sys.argv[1]), callback)
-
-
-def disable_mf():
-    if os.environ.get("DISABLE_MF"):
-        caller = getframeinfo(stack()[1][0])
-        print(f"DISABLE_MF: {caller.filename}:{caller.lineno}")
-        return True
-    else:
-        return False
-
-
-def disable_syba():
-    if os.environ.get("DISABLE_SYBA"):
-        caller = getframeinfo(stack()[1][0])
-        print(f"DISABLE_SYBA: {caller.filename}:{caller.lineno}")
-        return True
-    else:
-        return False
 
 
 class AppKilled(Exception):
@@ -114,9 +110,12 @@ def _is_errno(e: URLError, errno: int):
     return isinstance(e.reason, OSError) and e.reason.errno == errno
 
 
-def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]:
+_running = True
+
+
+def _fetch(port: int, data: bytes, remaining_retries: int = 5) -> Tuple[bool, Any]:
     def f(e: Exception):
-        if remaining_retries > 0:
+        if remaining_retries > 0 and _running:
             return _fetch(port, data, remaining_retries - 1)
         else:
             return (True, e)
@@ -125,7 +124,7 @@ def _fetch(port: int, data: Any, remaining_retries: int = 5) -> Tuple[bool, Any]
         req = request.Request(
             f"http://localhost:{port}",
             method="POST",
-            data=json.dumps(data).encode(),
+            data=data,
         )
         res = request.urlopen(req)
         return (False, json.loads(res.read()))
@@ -146,7 +145,8 @@ class CondaApp(Generic[T, R]):
         self.module = module
         self.env = env
         self.p: Optional[subprocess.Popen[Any]] = None
-        self.executor: Optional[concurrent.futures.ProcessPoolExecutor] = None
+        self.executor: Optional[ThreadPoolExecutor] = None
+        self._futures: set[Future[Any]] = set()
 
     def __str__(self):
         return f'CondaApp(port={self.port}, module="{self.module}", env="{self.env}")'
@@ -157,7 +157,10 @@ class CondaApp(Generic[T, R]):
     def _process_fetch(self, x: Tuple[bool, Any]):
         is_internal_error, v = x
         if is_internal_error:
-            logger.exception(v)
+            if isinstance(v, KeyboardInterrupt):
+                logger.error(KeyboardInterrupt)
+            else:
+                logger.exception(v)
             raise v
         else:
             is_app_error, value = v
@@ -166,17 +169,29 @@ class CondaApp(Generic[T, R]):
             else:
                 return value
 
-    def fetch_sync(self, data: Optional[T]) -> R:
+    def fetch_sync(self, data: T) -> R:
         if self.running():
-            return self._process_fetch(_fetch(self.port, data))
+            return self._process_fetch(_fetch(self.port, json.dumps(data).encode()))
         else:
             raise AppKilled()
 
-    async def fetch(self, data: Optional[T]) -> R:
+    def fetch(self, data: T):
+        return self._fetch(json.dumps(data))
+
+    async def _wrap_future(self, f: "Future[_U]") -> _U:
+        self._futures.add(f)
+        try:
+            return await f
+        finally:
+            self._futures.remove(f)
+
+    async def _fetch(self, raw_data: str) -> R:
         if self.running():
             return self._process_fetch(
-                await get_event_loop().run_in_executor(
-                    self.executor, _fetch, self.port, data
+                await self._wrap_future(
+                    get_event_loop().run_in_executor(
+                        self.executor, _fetch, self.port, raw_data.encode()
+                    )
                 )
             )
         else:
@@ -185,7 +200,7 @@ class CondaApp(Generic[T, R]):
     async def _start(self):
         assert not self.executor
         assert not self.p
-        self.executor = concurrent.futures.ProcessPoolExecutor()
+        self.executor = ThreadPoolExecutor()
         self.p = subprocess.Popen(
             [
                 os.path.join(conda_dir, "envs", self.env, "bin/python"),
@@ -201,7 +216,7 @@ class CondaApp(Generic[T, R]):
         while self.running():
             await sleep(1)
             try:
-                await self.fetch(None)
+                await self._fetch("status")
                 break
             except RemoteDisconnected:
                 pass
@@ -209,44 +224,43 @@ class CondaApp(Generic[T, R]):
                 if not _is_errno(e, 111):
                     raise e
 
-    async def start(self):
+    async def __aenter__(self):
         time, _ = await Timer.acalc(self._start())
         print(f"{self} starting time: {time}")
-
-    async def __aenter__(self):
-        await self.start()
         return self.fetch, self.fetch_sync
 
-    def stop(self):
+    async def __aexit__(self, *_: Any):
+        global _running
+        _running = False
         if self.executor:
-            self.executor.shutdown()
-        self.executor = None
+            self.executor.shutdown(wait=False, cancel_futures=True)
+        for f in self._futures:
+            if not f.cancelled():
+                f.cancel()
         if self.running():
             assert self.p
             self.p.kill()
-            try:
-                self.p.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                self.p.send_signal(9)
-            self.p = None
-
-    async def __aexit__(self, *_: Any):
-        self.stop()
 
 
 class Db:
     def __init__(self, name: str, readonly: bool):
         from sqlitedict import SqliteDict
 
+        self.readonly = readonly
+        self._write_counter = 0
         self.db = SqliteDict(
             f"{project_dir}/results/{name}.sqlite",
             outer_stack=False,
-            autocommit=True,
+            autocommit=False,
             flag="r" if readonly else "c",
+            journal_mode="OFF",
         )
 
     def _write(self, raw_key: str, value: T) -> T:
         self.db[raw_key] = json.dumps(value, sort_keys=True)
+        self._write_counter += 1
+        if self._write_counter % 1000 == 0:
+            self._commit()
         return value
 
     async def maybe_create(self, key: Any, f: Callable[[], Awaitable[Any]]):
@@ -257,7 +271,7 @@ class Db:
     def read_or_create_sync(self, key: Any, f: Callable[[], T]) -> T:
         raw_key = json.dumps(key, sort_keys=True)
         return (
-            cast(T, self._read(raw_key, type(T)))
+            cast(T, self._read(raw_key))
             if raw_key in self.db
             else self._write(raw_key, f())
         )
@@ -271,11 +285,14 @@ class Db:
             self.db[raw_key] if raw_key in self.db else self._write(raw_key, await f())
         )
 
-    def _read(self, raw_key: Any, type: Type[T]) -> Union[T, None]:
-        return cast(type, json.loads(self.db.get(raw_key, "null")))
+    def _read(self, raw_key: Any, type: Type[T] = Any, fallback: bool = True) -> T:
+        return cast(
+            type,
+            json.loads(self.db.get(raw_key, "null") if fallback else self.db[raw_key]),
+        )
 
-    def read(self, key: Any, type: Type[T]) -> Union[T, None]:
-        return self._read(json.dumps(key, sort_keys=True), type)
+    def read(self, key: Any, type: Type[T], fallback: bool = True) -> T:
+        return self._read(json.dumps(key, sort_keys=True), type, fallback)
 
     def write(self, key: Any, value: Any):
         self._write(json.dumps(key, sort_keys=True), value)
@@ -287,5 +304,15 @@ class Db:
         self.db.__enter__()
         return self
 
+    def _commit(self):
+        if not self.readonly:
+            print(
+                f"committing {self._write_counter} write ops to {self.db.filename}..."
+            )
+            self.db.commit(True)
+            self._write_counter = 0
+            print(f"commited")
+
     def __exit__(self, *exc_info):
+        self._commit()
         self.db.close()

@@ -8,7 +8,7 @@ from shared import Db
 from .ai import ai_input_gen
 from .data import data
 from .graph import Graph
-from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers
+from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers, db_scorers
 from .tree import Tree
 from .types import AiTree, Timed
 
@@ -32,16 +32,22 @@ async def ai_postprocess():
     async with app_scorers() as (_, smileser):
         for db, ai_input, _mol in ai_input_gen(False, False):
             timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
-            if timed_ai_tree:
-                _, ai_tree = timed_ai_tree
+            _, ai_tree = timed_ai_tree
 
-                async def f():
-                    tree = await Tree.from_ai(ai_tree, smileser)
-                    return tree.json()
+            async def f():
+                tree = await Tree.from_ai(ai_tree, smileser)
+                return tree.json()
 
-                await db.maybe_create(["ai_postprocess", ai_input], lambda: f())
-            else:
-                print("error")
+            await db.maybe_create(["ai_postprocess", ai_input], lambda: f())
+
+
+@use
+async def add_mfgb():
+    async with app_scorers() as (_, smileser):
+        for db, ai_input, _mol in ai_input_gen(True, False):
+            timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
+            _, ai_tree = timed_ai_tree
+            await Tree.from_ai(ai_tree, smileser)
 
 
 @use
@@ -112,7 +118,10 @@ async def ra_scores():
 if __name__ == "__main__":
     method = methods.get(argv[1])
     if method:
-        run(method())
+        try:
+            run(method())
+        except KeyboardInterrupt:
+            pass
     else:
         print(methods.keys())
 

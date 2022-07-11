@@ -2,31 +2,30 @@ from typing import Optional, Tuple, TypedDict
 
 from shared import Fn
 
-from .utils import serialize_dict
 
-
-class JsonScore(TypedDict):
+class DictScore(TypedDict):
     sa: float
     sc: float
     ra: float
     mf: float
+    mfgb: float
     syba: float
 
 
 class Score:
-    def __init__(self, sa: float, sc: float, ra: float, mf: float, syba: float):
+    def __init__(
+        self, sa: float, sc: float, ra: float, mf: float, mfgb: float, syba: float
+    ):
         self.sa = sa
         self.sc = sc
         self.ra = ra
         self.mf = mf
+        self.mfgb = mfgb
         self.syba = syba
 
-    def __str__(self):
-        return serialize_dict(self.json(), ",")
-
     @staticmethod
-    def from_json(j: JsonScore):
-        return Score(sa=j["sa"], sc=j["sc"], ra=j["ra"], syba=j["syba"], mf=j["mf"])
+    def from_json(j: DictScore):
+        return Score(**j)
 
     @staticmethod
     def getters() -> list[Tuple[str, Fn["Score", float]]]:
@@ -35,22 +34,17 @@ class Score:
             ("sc", lambda s: s.sc),
             ("ra", lambda s: s.ra),
             ("mf", lambda s: s.mf),
+            ("mfgb", lambda s: s.mfgb),
             ("syba", lambda s: s.syba),
         ]
 
-    def json(self) -> JsonScore:
-        return {
-            "sa": self.sa,
-            "sc": self.sc,
-            "ra": self.ra,
-            "mf": self.mf,
-            "syba": self.syba,
-        }
+    def as_dict(self) -> DictScore:
+        return vars(self)
 
 
-class JsonSmiles(TypedDict):
+class DictSmiles(TypedDict):
     smiles: str
-    score: JsonScore
+    score: DictScore
     transforms: Optional[int]
 
 
@@ -60,16 +54,9 @@ class Smiles:
         self.score = score
         self.transforms = transforms
 
-    def __str__(self):
-        return serialize_dict(self.json(), ", ")
-
-    def json(self) -> JsonSmiles:
-        return {
-            "smiles": self.smiles,
-            "score": self.score.json(),
-            "transforms": self.transforms,
-        }
+    def as_dict(self) -> DictSmiles:
+        return vars(self)
 
     @staticmethod
-    def from_json(j: JsonSmiles):
+    def from_json(j: DictSmiles):
         return Smiles(j["smiles"], Score.from_json(j["score"]), j["transforms"])

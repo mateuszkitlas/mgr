@@ -9,8 +9,7 @@ def init():
     from os import symlink
     from os.path import exists
 
-    from askcos.prioritization.prioritizer.scscore import \
-        SCScorePrecursorPrioritizer
+    from askcos.prioritization.prioritizer.scscore import SCScorePrecursorPrioritizer
     from askcos.retrosynthetic.mcts.tree_builder import MCTS
     from askcos.retrosynthetic.transformer import RetroTransformer
 

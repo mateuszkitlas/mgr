@@ -31,7 +31,6 @@ f() {
       ;;
     format)
       ${py310bin}/black *.py **/*.py
-      ${py310bin}/isort *.py **/*.py
       ;;
     gunzip)
       gzip -dk results/db.sqlite.gz
@@ -48,7 +47,6 @@ f() {
       for PYFILE in `git diff-index --cached --name-only HEAD | grep '.py$'`; do
         if [ -f "$PYFILE" ]; then
           ${py310bin}/black $PYFILE
-          ${py310bin}/isort $PYFILE
           git add $PYFILE
         fi
       done
