@@ -14,7 +14,7 @@ from shared import Db, Fn
 
 from .ai import ai_input_gen
 from .score import Score
-from .tree import JsonTree, Tree, TreeTypes, sum_tree_stats
+from .tree import DictTree, Tree, TreeTypes, sum_tree_stats
 from .types import AiInput
 from .utils import flatten, not_none, serialize_dict
 
@@ -139,7 +139,7 @@ def _hist(
 
 def input_data(detailed: bool):
     def f(db: Db, ai_input: AiInput, mol: Mol):
-        json_tree = db.read(["ai_postprocess", ai_input], JsonTree)
+        json_tree = db.read(["ai_postprocess", ai_input], DictTree)
         if json_tree:
             return Tree(json_tree), mol
 

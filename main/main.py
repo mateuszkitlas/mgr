@@ -2,6 +2,7 @@ import json
 from asyncio import gather, run
 from sys import argv
 from typing import Callable, Coroutine
+from main.score import DictScore, Score, Smiles
 
 from shared import Db
 
@@ -9,7 +10,7 @@ from .ai import ai_input_gen
 from .data import data
 from .graph import Graph
 from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers, db_scorers
-from .tree import Tree
+from .tree import DictTree, Tree
 from .types import AiTree, Timed
 
 methods: dict[str, Callable[[], Coroutine[None, None, None]]] = {}
@@ -36,18 +37,48 @@ async def ai_postprocess():
 
             async def f():
                 tree = await Tree.from_ai(ai_tree, smileser)
-                return tree.json()
+                return tree.as_dict()
 
             await db.maybe_create(["ai_postprocess", ai_input], lambda: f())
 
 
 @use
-async def add_mfgb():
+async def calc_lacking_mfgb():
     async with app_scorers() as (_, smileser):
         for db, ai_input, _mol in ai_input_gen(True, False):
             timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
             _, ai_tree = timed_ai_tree
             await Tree.from_ai(ai_tree, smileser)
+
+
+@use
+async def gen_scores_merged():
+    with Db("scores_merged", False) as db_scores_merged, Db(
+        "scores", True
+    ) as db_scores:
+        for raw_sm, sm in (
+            (raw_smiles, smiles)
+            for (type, raw_smiles), smiles in db_scores.items(tuple[str, str], str)
+            if type == "smiles"
+        ):
+            if not db_scores_merged.has(raw_sm):
+              try:
+                  score: DictScore = {
+                      scoring: db_scores.read([scoring, sm], float, False)
+                      for scoring in all_scorings
+                  }
+                  db_scores_merged.write(raw_sm, score)
+              except KeyError as e:
+                  print(e.args)
+
+
+@use
+async def migrate_postprocess_mfgb():
+    with Db("scores_merged") as db_scores_merged:
+        with db_scorers() as (_, smileser):
+            for db, ai_input, _mol in ai_input_gen(True, False):
+                dict_tree = db.read(["ai_postprocess", ai_input], DictTree)
+                await Tree.from_ai(ai_tree, smileser)
 
 
 @use

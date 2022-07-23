@@ -133,11 +133,11 @@ def sum_tree_stats(l: list[TreeStats]) -> TreeStats:
     }
 
 
-class JsonTree(TypedDict):
+class DictTree(TypedDict):
     expandable: list[DictSmiles]
     in_stock: list[DictSmiles]
     ai_score: float
-    children: list["JsonTree"]
+    children: list["DictTree"]
     type: TreeTypes
     not_solved_depth: int
 
@@ -161,7 +161,7 @@ class Tree:
         await _tree.assign_scores_rec(f)
         return Tree(_tree)
 
-    def __init__(self, t: Union[_Tree, JsonTree]):
+    def __init__(self, t: Union[_Tree, DictTree]):
         self.type: TreeTypes
         self.expandable: list[Smiles]
         self.in_stock: list[Smiles]
@@ -200,12 +200,12 @@ class Tree:
     def all_nodes(self) -> Iterable["Tree"]:
         return chain([self], flatten((c.all_nodes() for c in self.children)))
 
-    def json(self) -> JsonTree:
+    def as_dict(self) -> DictTree:
         return {
             "expandable": [s.as_dict() for s in self.expandable],
             "in_stock": [s.as_dict() for s in self.in_stock],
             "ai_score": self.ai_score,
-            "children": [c.json() for c in self.children],
+            "children": [c.as_dict() for c in self.children],
             "type": self.type,
             "not_solved_depth": self.not_solved_depth,
         }

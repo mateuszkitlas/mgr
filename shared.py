@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import signal
 import subprocess
 import sys
 import traceback
@@ -15,6 +16,7 @@ from typing import (
     Awaitable,
     Callable,
     Generic,
+    Iterable,
     Optional,
     Tuple,
     Type,
@@ -239,7 +241,7 @@ class CondaApp(Generic[T, R]):
                 f.cancel()
         if self.running():
             assert self.p
-            self.p.kill()
+            self.p.send_signal(signal.SIGINT)
 
 
 class Db:
@@ -276,6 +278,9 @@ class Db:
             else self._write(raw_key, f())
         )
 
+    def has(self, key: Any):
+        return json.dumps(key, sort_keys=True) in self.db
+
     async def read_or_create(
         self, key: Any, f: Callable[[], Awaitable[T]]
     ) -> Awaitable[T]:
@@ -297,8 +302,13 @@ class Db:
     def write(self, key: Any, value: Any):
         self._write(json.dumps(key, sort_keys=True), value)
 
+    def items(
+        self, _ktype: Type[T] = Any, _vtype: Type[R] = Any
+    ) -> Iterable[Tuple[T, R]]:
+        return ((json.loads(k), json.loads(v)) for k, v in self.db.iteritems())
+
     def as_json(self):
-        return json.dumps({k: v for k, v in self.db.iteritems()}, indent=2)
+        return json.dumps({k: v for k, v in self.items()}, indent=2)
 
     def __enter__(self):
         self.db.__enter__()

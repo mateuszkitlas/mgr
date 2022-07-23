@@ -98,7 +98,7 @@ class Test(IsolatedAsyncioTestCase):
             real_time, tree = await Timer.acalc(Tree.from_ai(ai_tree, scorer.score))
             self.assertEqual(tree.not_solved_depth, -1)
             scorer.add_real_time(real_time)
-            save_trees([(paracetamol.smiles, tree.json())], "test_all.json")
+            save_trees([(paracetamol.smiles, tree.as_dict())], "test_all.json")
             loaded_tree = Tree(load_trees("test_all.json")[0][1])
             self.assertEqual(
                 [n.ai_score for n in tree.all_nodes()],
