@@ -39,7 +39,7 @@ f() {
       ;;
     pre-commit)
       set -o xtrace
-      for NAME in db scores; do
+      for NAME in db scores scores_merged; do
         if [ -f results/$NAME.sqlite ]; then
           gzip -f9k results/$NAME.sqlite
           ls -s1h results/$NAME.sqlite* || :
