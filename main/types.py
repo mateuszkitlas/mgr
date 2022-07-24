@@ -4,12 +4,12 @@ T = TypeVar("T")
 Timed = Tuple[float, T]
 
 
-class AiTree(TypedDict):
+class AiTreeRaw(TypedDict):
     is_solved: bool
     ai_score: float
     expandable: list[Tuple[str, Optional[int]]]
     in_stock: list[Tuple[str, Optional[int]]]
-    children: list[Optional["AiTree"]]
+    children: list[Optional["AiTreeRaw"]]
 
 
 class _AcPathChemical_Attributes(TypedDict):

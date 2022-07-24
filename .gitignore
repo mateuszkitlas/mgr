@@ -4,5 +4,4 @@ data/*
 data.tgz
 opt-aizynthfinder
 stats_detailed.ipynb
-results/db.sqlite
-results/scores.sqlite
+results/*.sqlite

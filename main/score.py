@@ -1,6 +1,6 @@
 from typing import Optional, Tuple, TypedDict
 
-from shared import Fn
+from shared import Db, Fn
 
 
 class DictScore(TypedDict):
@@ -29,6 +29,7 @@ class Score:
 
     @staticmethod
     def getters() -> list[Tuple[str, Fn["Score", float]]]:
+        "sa, sc, ra, mf, mfgb, syba"
         return [
             ("sa", lambda s: s.sa),
             ("sc", lambda s: s.sc),
@@ -42,21 +43,24 @@ class Score:
         return vars(self)
 
 
-class DictSmiles(TypedDict):
+class DictAiSmiles(TypedDict):
     smiles: str
-    score: DictScore
     transforms: Optional[int]
 
 
-class Smiles:
+class AiSmiles:
     def __init__(self, smiles: str, score: Score, transforms: Optional[int]):
         self.smiles = smiles
         self.score = score
         self.transforms = transforms
 
-    def as_dict(self) -> DictSmiles:
-        return vars(self)
+    def as_dict(self) -> DictAiSmiles:
+        return {"smiles": self.smiles, "transforms": self.transforms}
 
     @staticmethod
-    def from_json(j: DictSmiles):
-        return Smiles(j["smiles"], Score.from_json(j["score"]), j["transforms"])
+    def from_json(j: DictAiSmiles, db: Db):
+        return AiSmiles(
+            j["smiles"],
+            Score.from_json(db.read(j["smiles"], DictScore)),
+            j["transforms"],
+        )

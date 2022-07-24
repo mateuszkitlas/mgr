@@ -2,7 +2,7 @@ import json
 from asyncio import gather, run
 from sys import argv
 from typing import Callable, Coroutine
-from main.score import DictScore, Score, Smiles
+from main.score import DictScore, Score, AiSmiles
 
 from shared import Db
 
@@ -10,8 +10,8 @@ from .ai import ai_input_gen
 from .data import data
 from .graph import Graph
 from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers, db_scorers
-from .tree import DictTree, Tree
-from .types import AiTree, Timed
+from .tree import DictAiTree, AiTree
+from .types import AiTreeRaw, Timed
 
 methods: dict[str, Callable[[], Coroutine[None, None, None]]] = {}
 
@@ -32,11 +32,11 @@ async def ai():
 async def ai_postprocess():
     async with app_scorers() as (_, smileser):
         for db, ai_input, _mol in ai_input_gen(False, False):
-            timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
+            timed_ai_tree = db.read(["ai", ai_input], Timed[AiTreeRaw])
             _, ai_tree = timed_ai_tree
 
             async def f():
-                tree = await Tree.from_ai(ai_tree, smileser)
+                tree = await AiTree.from_ai(ai_tree, smileser)
                 return tree.as_dict()
 
             await db.maybe_create(["ai_postprocess", ai_input], lambda: f())
@@ -46,9 +46,8 @@ async def ai_postprocess():
 async def calc_lacking_mfgb():
     async with app_scorers() as (_, smileser):
         for db, ai_input, _mol in ai_input_gen(True, False):
-            timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
-            _, ai_tree = timed_ai_tree
-            await Tree.from_ai(ai_tree, smileser)
+            _, ai_tree_raw = db.read(["ai", ai_input], Timed[AiTreeRaw])
+            await AiTree.from_ai(ai_tree_raw, smileser)
 
 
 @use
@@ -62,23 +61,29 @@ async def gen_scores_merged():
             if type == "smiles"
         ):
             if not db_scores_merged.has(raw_sm):
-              try:
-                  score: DictScore = {
-                      scoring: db_scores.read([scoring, sm], float, False)
-                      for scoring in all_scorings
-                  }
-                  db_scores_merged.write(raw_sm, score)
-              except KeyError as e:
-                  print(e.args)
+                try:
+                    score: DictScore = {
+                        scoring: db_scores.read([scoring, sm], float, False)
+                        for scoring in all_scorings
+                    }
+                    db_scores_merged.write(raw_sm, score)
+                except KeyError as e:
+                    print(e.args)
 
 
 @use
 async def migrate_postprocess_mfgb():
-    with Db("scores_merged") as db_scores_merged:
-        with db_scorers() as (_, smileser):
-            for db, ai_input, _mol in ai_input_gen(True, False):
-                dict_tree = db.read(["ai_postprocess", ai_input], DictTree)
-                await Tree.from_ai(ai_tree, smileser)
+    with Db("scores_merged", True) as db_scores_merged:
+        for db, ai_input, _mol in ai_input_gen(False, False):
+            db.write(
+                ["ai_postprocess", ai_input],
+                AiTree(
+                    (
+                        db.read(["ai_postprocess", ai_input], DictAiTree),
+                        db_scores_merged,
+                    )
+                ).as_dict(),
+            )
 
 
 @use
@@ -126,7 +131,7 @@ async def ac_graph_to_tree():
         with_nones = (db.read(["ac", mol.smiles]) for mol in mols)
         graphs = (Graph.from_ac_result(data) for data in with_nones)
         for graph in graphs:
-            print(Tree.from_ac(graph, db).stats())
+            print(AiTree.from_ac(graph, db).stats())
 
 
 @use

@@ -2,11 +2,11 @@ import asyncio
 from contextlib import asynccontextmanager, contextmanager
 from typing import List, Literal, Optional, Tuple
 
-from main.score import Score, Smiles
+from main.score import Score, AiSmiles
 from main.utils import dict_gather
 from shared import CondaApp, Db
 
-from .types import AcResult, AiInput, AiTree, Timed
+from .types import AcResult, AiInput, AiTreeRaw, Timed
 
 Scoring = Literal["sa", "sc", "ra", "syba", "mf", "mfgb"]
 all_scorings: list[Scoring] = ["sa", "sc", "ra", "syba", "mf", "mfgb"]
@@ -26,7 +26,7 @@ async def app_scorers():
             v: dict[Scoring, float] = await dict_gather(
                 {k: f(k, s) for k in all_scorings}
             )
-            return Smiles(s, Score(**v), t)
+            return AiSmiles(s, Score(**v), t)
 
         yield f, g
 
@@ -42,7 +42,7 @@ def db_scorers():
 
         def g(data: Tuple[str, Optional[int]]):
             s, t = data
-            return Smiles(s, Score(**{k: f(k, s) for k in all_scorings}), t)
+            return AiSmiles(s, Score(**{k: f(k, s) for k in all_scorings}), t)
 
         async def h(data: Tuple[str, Optional[int]]):
             return g(data)
@@ -52,7 +52,7 @@ def db_scorers():
 
 @asynccontextmanager
 async def app_ai_ac():
-    ai = CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env")
+    ai = CondaApp[AiInput, Timed[AiTreeRaw]](4001, "ai", "aizynth-env")
     ac = CondaApp[str, Timed[AcResult]](4002, "ac", "askcos")
     try:
         await asyncio.gather(ai.start(), ac.start())
@@ -72,5 +72,5 @@ async def app_ac():
 
 @asynccontextmanager
 async def app_ai():
-    async with CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env") as x:
+    async with CondaApp[AiInput, Timed[AiTreeRaw]](4001, "ai", "aizynth-env") as x:
         yield x

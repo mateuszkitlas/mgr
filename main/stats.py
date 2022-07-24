@@ -14,9 +14,9 @@ from shared import Db, Fn
 
 from .ai import ai_input_gen
 from .score import Score
-from .tree import DictTree, Tree, TreeTypes, sum_tree_stats
+from .tree import DictAiTree, AiTree, TreeTypes, sum_tree_stats
 from .types import AiInput
-from .utils import flatten, not_none, serialize_dict
+from .utils import flatten, not_none
 
 matplotlib.rc("font", size=5)
 
@@ -37,20 +37,21 @@ agg_list: list[AggTuple] = [
     ("avg", "green", avg),
 ]
 
-ScoreGetter = Optional[Fn[Score, float]]
-_score_getters: list[Tuple[str, ScoreGetter]] = [*Score.getters(), ("ai", None)]
+ScoreGetter = Fn[Score, float]
 
 
 def _unzip(l: list[Tuple[T, T]]):
     return ([x for x, _ in l], [y for _, y in l])
 
 
-def _all_nodes(roots: list[Tree]):
+def _all_nodes(roots: list[AiTree]):
     return flatten((root.all_nodes() for root in roots))
 
 
-def _pairs_siblings(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeTypes]):
-    def pair(node: Tree):
+def _pairs_siblings(
+    roots: list[AiTree], xtype: list[TreeTypes], ytype: list[TreeTypes]
+):
+    def pair(node: AiTree):
         return (
             (x, y)
             for x in node.children
@@ -63,9 +64,9 @@ def _pairs_siblings(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeT
 
 
 def _pairs_parent_child(
-    roots: list[Tree], parenttype: list[TreeTypes], childtype: list[TreeTypes]
+    roots: list[AiTree], parenttype: list[TreeTypes], childtype: list[TreeTypes]
 ):
-    def pair(p: Tree):
+    def pair(p: AiTree):
         return ((p, c) for c in p.children if c.type in childtype)
 
     return list(
@@ -90,7 +91,7 @@ def _ax6(title: str, has_data: bool):
         fig.set_dpi(220)
         fig.set_figheight(7)
         fig.suptitle(title, horizontalalignment="left", x=0.005)
-        for (score_name, getter), ax in zip(_score_getters, axs.flat):
+        for (score_name, getter), ax in zip(Score.getters(), axs.flat):
             ax.set_title(f"score={score_name}")
             ax.ticklabel_format(style="plain")
             yield (score_name, getter, ax)
@@ -138,14 +139,21 @@ def _hist(
 
 
 def input_data(detailed: bool):
-    def f(db: Db, ai_input: AiInput, mol: Mol):
-        json_tree = db.read(["ai_postprocess", ai_input], DictTree)
-        if json_tree:
-            return Tree(json_tree), mol
+    def f(db: Db, db_scores_merged: Db, ai_input: AiInput, mol: Mol):
+        return (
+            AiTree(
+                (db.read(["ai_postprocess", ai_input], DictAiTree), db_scores_merged)
+            ),
+            mol,
+        )
 
-    data = list(
-        not_none(f(db, ai_input, mol) for db, ai_input, mol in ai_input_gen(True, True))
-    )
+    with Db("scores_merged", True) as db_scores_merged:
+        data = list(
+            not_none(
+                f(db, db_scores_merged, ai_input, mol)
+                for db, ai_input, mol in ai_input_gen(True, True)
+            )
+        )
     solved_count = sum((root.type == "internal" for root, _mol in data))
     not_solved_count = sum((root.type == "not_solved" for root, _mol in data))
     all_count = len(data)
@@ -162,21 +170,18 @@ def input_data(detailed: bool):
 
 
 def _tree_to_float(
-    tree: Tree,
-    tree_to_scores: Fn[Tree, list[Score]],
+    tree: AiTree,
+    tree_to_scores: Fn[AiTree, list[Score]],
     getter: ScoreGetter,
     agg_fn: AggFn,
 ) -> float:
-    if getter:
-        return agg_fn([getter(score) for score in tree_to_scores(tree)])
-    else:
-        return tree.ai_score
+    return agg_fn([getter(score) for score in tree_to_scores(tree)])
 
 
 def scatter_pairs(
     xtype: list[TreeTypes],
     ytype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
+    tree_to_scores: Fn[AiTree, list[Score]],
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
@@ -199,7 +204,7 @@ for every tree in source:
         ))"""
             for score_name, getter, ax in _ax6(title, bool(xs)):
 
-                def stat(t: Tree):
+                def stat(t: AiTree):
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
                 x, y = [stat(x) for x in xs], [stat(y) for y in ys]
@@ -214,7 +219,7 @@ for every tree in source:
                 ax.axis("square")
                 ax.set_xlim([_min, _max])
                 ax.set_ylim([_min, _max])
-                ax.set_title(serialize_dict(info, ", "))
+                ax.set_title(info)
                 ax.axline((_min, _min), (_max, _max), linewidth=1, color="black")
                 ax.scatter(x, y, s=1, linewidths=1, color=agg_color)
 
@@ -222,7 +227,7 @@ for every tree in source:
 def histogram_pairs_siblings(
     xtype: list[TreeTypes],
     ytype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
+    tree_to_scores: Fn[AiTree, list[Score]],
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
@@ -242,7 +247,7 @@ for every tree in source:
         x.append({agg_name}(tree_to_scores(xnode)) - {agg_name}(tree_to_scores(ynode)))"""
             for _score_name, getter, ax in _ax6(title, bool(pairs)):
 
-                def stat(t: Tree) -> float:
+                def stat(t: AiTree) -> float:
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
                 ax.xaxis.set_tick_params(labelsize="x-small")
@@ -259,7 +264,7 @@ for every tree in source:
 def histogram_pairs_parent_child(
     parenttype: list[TreeTypes],
     childtype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
+    tree_to_scores: Fn[AiTree, list[Score]],
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
@@ -279,7 +284,7 @@ for every tree in source:
         x.append({agg_name}(tree_to_scores(node)) - {agg_name}(tree_to_scores(child_node)))"""
             for _score_name, getter, ax in _ax6(title, bool(pairs)):
 
-                def stat(t: Tree) -> float:
+                def stat(t: AiTree) -> float:
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
                 ax.xaxis.set_tick_params(labelsize="x-small")
@@ -295,7 +300,7 @@ for every tree in source:
 def boxplot_scores(
     ltype: list[TreeTypes],
     rtype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
+    tree_to_scores: Fn[AiTree, list[Score]],
     detailed: bool,
 ):
     for roots, source in input_data(detailed):
@@ -321,7 +326,7 @@ for every tree in source:
         for _, getter, ax in _ax6(title, bool(xs) and bool(ys)):
             for i, (agg_name, agg_color, agg_fn) in enumerate(agg_list):
 
-                def stat(t: Tree) -> float:
+                def stat(t: AiTree) -> float:
                     return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
                 x, y = [stat(x) for x in xs], [stat(y) for y in ys]
@@ -344,7 +349,7 @@ for every tree in source:
 def histogram_top_bottom(
     ttype: list[TreeTypes],
     btype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
+    tree_to_scores: Fn[AiTree, list[Score]],
     agg_tuple: AggTuple,
     score_getter: Tuple[str, ScoreGetter],
     detailed: bool,
@@ -353,7 +358,7 @@ def histogram_top_bottom(
         agg_name, agg_color, agg_fn = agg_tuple
         score_name, getter = score_getter
 
-        def stat(t: Tree) -> float:
+        def stat(t: AiTree) -> float:
             return _tree_to_float(t, tree_to_scores, getter, agg_fn)
 
         title = f"""

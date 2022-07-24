@@ -3,14 +3,14 @@ from collections import defaultdict
 from itertools import chain
 from typing import Awaitable, Iterable, Literal, Optional, TypedDict, TypeVar, Union
 
-from shared import Fn
+from shared import Db, Fn
 
-from .score import DictSmiles, Score, Smiles
-from .types import AiTree
+from .score import DictAiSmiles, Score, AiSmiles
+from .types import AiTreeRaw
 from .utils import flatten
 
 T = TypeVar("T")
-Scorer = Fn[tuple[str, Optional[int]], Awaitable[Smiles]]
+Scorer = Fn[tuple[str, Optional[int]], Awaitable[AiSmiles]]
 TreeTypes = Literal["solved", "not_solved", "internal"]
 
 
@@ -33,13 +33,13 @@ class Mols:
             self.expands = None
 
 
-class _Tree:
-    def __init__(self, ai: AiTree):
+class _AiTree:
+    def __init__(self, ai: AiTreeRaw):
         solved = ai["is_solved"]
         self.ai_score = ai["ai_score"]
         self._expandable = ai["expandable"]
         self._in_stock = ai["in_stock"]
-        self.children = [_Tree(c) for c in ai["children"] if c]
+        self.children = [_AiTree(c) for c in ai["children"] if c]
         if solved:
             assert not self.children
         solvable = solved or any(
@@ -53,8 +53,8 @@ class _Tree:
             or (self.type == "not_solved" and self._expandable)
             or (self.type == "internal" and self._expandable)
         )
-        self.expandable: Optional[list[Smiles]] = None
-        self.in_stock: Optional[list[Smiles]] = None
+        self.expandable: Optional[list[AiSmiles]] = None
+        self.in_stock: Optional[list[AiSmiles]] = None
         self.not_solved_depth: Optional[int] = None
 
     def _assign_not_solved_depth(self, ancestor_not_solved_depth: int):
@@ -77,37 +77,37 @@ class _Tree:
         )
         self.expandable, self.in_stock = list(expandable), list(in_stock)
 
-    def all_nodes(self) -> Iterable["_Tree"]:
+    def all_nodes(self) -> Iterable["_AiTree"]:
         return chain([self], flatten((c.all_nodes() for c in self.children)))
 
     async def assign_scores_rec(self, f: Scorer):
         await gather(*(t._assign_scores(f) for t in self.all_nodes()))
 
 
-class NodeStats(TypedDict):
+class AiNodeStats(TypedDict):
     count: int
     expandable: int
     in_stock: int
 
 
-class TreeStats(TypedDict):
-    internal: NodeStats
-    solved: NodeStats
-    not_solved: dict[int, NodeStats]
+class AiTreeStats(TypedDict):
+    internal: AiNodeStats
+    solved: AiNodeStats
+    not_solved: dict[int, AiNodeStats]
     max_depth: int
     max_width: int
     node_count: int
     not_solved_count: int
 
 
-zero_node_stats: NodeStats = {
+zero_node_stats: AiNodeStats = {
     "expandable": 0,
     "in_stock": 0,
     "count": 0,
 }
 
 
-def _sum_node_stats(l: list[NodeStats]) -> NodeStats:
+def _sum_node_stats(l: list[AiNodeStats]) -> AiNodeStats:
     return {
         "expandable": sum((e["expandable"] for e in l)),
         "in_stock": sum((e["in_stock"] for e in l)),
@@ -115,7 +115,7 @@ def _sum_node_stats(l: list[NodeStats]) -> NodeStats:
     }
 
 
-def sum_tree_stats(l: list[TreeStats]) -> TreeStats:
+def sum_tree_stats(l: list[AiTreeStats]) -> AiTreeStats:
     max_depth = max(flatten(e["not_solved"].keys() for e in l), default=-1)
     return {
         "internal": _sum_node_stats([e["internal"] for e in l]),
@@ -133,56 +133,57 @@ def sum_tree_stats(l: list[TreeStats]) -> TreeStats:
     }
 
 
-class DictTree(TypedDict):
-    expandable: list[DictSmiles]
-    in_stock: list[DictSmiles]
+class DictAiTree(TypedDict):
+    expandable: list[DictAiSmiles]
+    in_stock: list[DictAiSmiles]
     ai_score: float
-    children: list["DictTree"]
+    children: list["DictAiTree"]
     type: TreeTypes
     not_solved_depth: int
 
 
-class Tree:
+class AiTree:
     @staticmethod
-    def from_ai_dummy_scorings(ai_tree: AiTree):
-        _tree = _Tree(ai_tree)
+    def from_ai_dummy_scorings(ai_tree: AiTreeRaw):
+        _tree = _AiTree(ai_tree)
         _tree.assign_not_solved_depth()
 
-        async def f(x: tuple[str, Optional[int]]) -> Smiles:
-            return Smiles(x[0], Score(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), x[1])
+        async def f(x: tuple[str, Optional[int]]) -> AiSmiles:
+            return AiSmiles(x[0], Score(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), x[1])
 
         run(_tree.assign_scores_rec(f))
-        return Tree(_tree)
+        return AiTree(_tree)
 
     @staticmethod
-    async def from_ai(ai_tree: AiTree, f: Scorer):
-        _tree = _Tree(ai_tree)
+    async def from_ai(ai_tree: AiTreeRaw, f: Scorer):
+        _tree = _AiTree(ai_tree)
         _tree.assign_not_solved_depth()
         await _tree.assign_scores_rec(f)
-        return Tree(_tree)
+        return AiTree(_tree)
 
-    def __init__(self, t: Union[_Tree, DictTree]):
+    def __init__(self, data: Union[_AiTree, tuple[DictAiTree, Db]]):
         self.type: TreeTypes
-        self.expandable: list[Smiles]
-        self.in_stock: list[Smiles]
+        self.expandable: list[AiSmiles]
+        self.in_stock: list[AiSmiles]
         self.ai_score: float
-        self.children: list[Tree]
+        self.children: list[AiTree]
         self.not_solved_depth: int
-        if isinstance(t, _Tree):
-            assert t.expandable is not None
-            assert t.in_stock is not None
-            assert t.not_solved_depth is not None
-            self.expandable = t.expandable
-            self.in_stock = t.in_stock
-            self.ai_score = t.ai_score
-            self.children = [Tree(c) for c in t.children]
-            self.type = t.type
-            self.not_solved_depth = t.not_solved_depth
+        if isinstance(data, _AiTree):
+            assert data.expandable is not None
+            assert data.in_stock is not None
+            assert data.not_solved_depth is not None
+            self.expandable = data.expandable
+            self.in_stock = data.in_stock
+            self.ai_score = data.ai_score
+            self.children = [AiTree(c) for c in data.children]
+            self.type = data.type
+            self.not_solved_depth = data.not_solved_depth
         else:
-            self.expandable = [Smiles.from_json(s) for s in t["expandable"]]
-            self.in_stock = [Smiles.from_json(s) for s in t["in_stock"]]
+            t, db = data
+            self.expandable = [AiSmiles.from_json(s, db) for s in t["expandable"]]
+            self.in_stock = [AiSmiles.from_json(s, db) for s in t["in_stock"]]
             self.ai_score = t["ai_score"]
-            self.children = [Tree(c) for c in t["children"]]
+            self.children = [AiTree((c, db)) for c in t["children"]]
             self.type = t["type"]
             self.not_solved_depth = t["not_solved_depth"]
         assert (
@@ -197,10 +198,10 @@ class Tree:
         ), (self.type, len(self.expandable), len(self.in_stock), len(self.children))
         assert self.expandable or self.in_stock
 
-    def all_nodes(self) -> Iterable["Tree"]:
+    def all_nodes(self) -> Iterable["AiTree"]:
         return chain([self], flatten((c.all_nodes() for c in self.children)))
 
-    def as_dict(self) -> DictTree:
+    def as_dict(self) -> DictAiTree:
         return {
             "expandable": [s.as_dict() for s in self.expandable],
             "in_stock": [s.as_dict() for s in self.in_stock],
@@ -210,26 +211,26 @@ class Tree:
             "not_solved_depth": self.not_solved_depth,
         }
 
-    def stats(self) -> TreeStats:
+    def stats(self) -> AiTreeStats:
         internal = [n for n in self.all_nodes() if n.type == "internal"]
         solved = [n for n in self.all_nodes() if n.type == "solved"]
         max_not_solved_depth = max(n.not_solved_depth for n in self.all_nodes())
         not_solved = [n for n in self.all_nodes() if n.type == "not_solved"]
 
-        def node_stats(nodes: list[Tree]) -> NodeStats:
+        def node_stats(nodes: list[AiTree]) -> AiNodeStats:
             return {
                 "count": len(nodes),
                 "expandable": sum((len(n.expandable) for n in nodes)),
                 "in_stock": sum((len(n.in_stock) for n in nodes)),
             }
 
-        def max_depth(t: Tree, acc: int) -> int:
+        def max_depth(t: AiTree, acc: int) -> int:
             return max((max_depth(c, acc + 1) for c in t.children), default=acc)
 
-        def max_width(t: Tree):
+        def max_width(t: AiTree):
             acc: dict[int, int] = defaultdict(lambda: 0)
 
-            def f(u: Tree, level: int):
+            def f(u: AiTree, level: int):
                 acc[level] += len(u.children)
                 for w in u.children:
                     f(w, level + 1)
@@ -237,7 +238,7 @@ class Tree:
             f(t, 0)
             return max(acc.values())
 
-        def node_count(t: Tree) -> int:
+        def node_count(t: AiTree) -> int:
             return 1 + sum(node_count(c) for c in t.children)
 
         return {
