@@ -1,5 +1,5 @@
 import json
-from typing import Any, Optional, Tuple, TypeVar
+from typing import Any, Optional, Tuple, TypeVar, List, Dict, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -40,6 +40,36 @@ ScoreGetter = Optional[Fn[Score, float]]
 _score_getters: list[Tuple[str, ScoreGetter]] = [*Score.getters(), ("ai", None)]
 
 
+def score_transformer(score_value: float, score_type: str) -> float:
+    """Transform score so that fall within [0,1].
+
+    0 means infeasible (not-accessible) molecule, 1 means fully feasible molecule.
+    """
+    if score_type == "sa":
+        # Transform [1, 10] to [0,1] and invert
+        result = 1 - (score_value - 1) / 9
+    elif score_type == "sc":
+        # Transform [1, 5] to [0,1] and invert
+        result = 1 - ((score_value - 1) / 4)
+    elif score_type == "ra":
+        result = score_value
+    elif score_type == "syba":
+        # For now suppose it is within [-100, 100]
+        result = (min(max(score_value, -100), 100) / 200) + 0.5
+    elif score_type == "mf":
+        # Transform [-800, 600] so that 0 turns into 0.5 (no inversion)
+        truncated = min(max(score_value, -800), 600)
+        if truncated > 0:
+            truncated /= 2 * 600
+        else:
+            truncated /= 2 * 800
+        result = truncated + 0.5
+    else:
+        result = score_value
+    assert 0 <= result <= 1
+    return result
+
+
 def _unzip(l: list[Tuple[T, T]]):
     return ([x for x, _ in l], [y for _, y in l])
 
@@ -48,7 +78,8 @@ def _all_nodes(roots: list[Tree]):
     return flatten((root.all_nodes() for root in roots))
 
 
-def _pairs_siblings(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeTypes]):
+def _pairs_siblings(roots: list[Tree], xtype: list[TreeTypes],
+                    ytype: list[TreeTypes]):
     def pair(node: Tree):
         return (
             (x, y)
@@ -62,14 +93,16 @@ def _pairs_siblings(roots: list[Tree], xtype: list[TreeTypes], ytype: list[TreeT
 
 
 def _pairs_parent_child(
-    roots: list[Tree], parenttype: list[TreeTypes], childtype: list[TreeTypes]
+        roots: list[Tree], parenttype: list[TreeTypes],
+        childtype: list[TreeTypes]
 ):
     def pair(p: Tree):
         return ((p, c) for c in p.children if c.type in childtype)
 
     return list(
         flatten(
-            (pair(parent) for parent in _all_nodes(roots) if parent.type in parenttype)
+            (pair(parent) for parent in _all_nodes(roots) if
+             parent.type in parenttype)
         )
     )
 
@@ -108,11 +141,11 @@ def _ax2(title: str, ttype: list[TreeTypes], btype: list[TreeTypes]):
 
 
 def _hist(
-    ax: Any,
-    x: list[float],
-    bin_count: int,
-    color: str,
-    range: Optional[Tuple[float, float]] = None,
+        ax: Any,
+        x: list[float],
+        bin_count: int,
+        color: str,
+        range: Optional[Tuple[float, float]] = None,
 ):
     return ax.hist(x=[x], color=[color], bins=bin_count, range=range)
     # ax.set_xticks(bins)
@@ -139,7 +172,8 @@ def input_data(detailed: bool):
             return Tree(json_tree), mol
 
     data = list(
-        not_none(f(db, ai_input, mol) for db, ai_input, mol in ai_input_gen(True, True))
+        not_none(f(db, ai_input, mol) for db, ai_input, mol in
+                 ai_input_gen(True, True))
     )
     solved_count = sum((root.type == "internal" for root, _mol in data))
     not_solved_count = sum((root.type == "not_solved" for root, _mol in data))
@@ -157,10 +191,10 @@ def input_data(detailed: bool):
 
 
 def _tree_to_float(
-    tree: Tree,
-    tree_to_scores: Fn[Tree, list[Score]],
-    getter: ScoreGetter,
-    agg_fn: AggFn,
+        tree: Tree,
+        tree_to_scores: Fn[Tree, list[Score]],
+        getter: ScoreGetter,
+        agg_fn: AggFn,
 ) -> float:
     if getter:
         return agg_fn([getter(score) for score in tree_to_scores(tree)])
@@ -169,10 +203,10 @@ def _tree_to_float(
 
 
 def scatter_pairs(
-    xtype: list[TreeTypes],
-    ytype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
-    detailed: bool,
+        xtype: list[TreeTypes],
+        ytype: list[TreeTypes],
+        tree_to_scores: Fn[Tree, list[Score]],
+        detailed: bool,
 ):
     for roots, source in input_data(detailed):
         if detailed:
@@ -210,15 +244,16 @@ for every tree in source:
                 ax.set_xlim([_min, _max])
                 ax.set_ylim([_min, _max])
                 ax.set_title(serialize_dict(info, ", "))
-                ax.axline((_min, _min), (_max, _max), linewidth=1, color="black")
+                ax.axline((_min, _min), (_max, _max), linewidth=1,
+                          color="black")
                 ax.scatter(x, y, s=1, linewidths=1, color=agg_color)
 
 
 def histogram_pairs_siblings(
-    xtype: list[TreeTypes],
-    ytype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
-    detailed: bool,
+        xtype: list[TreeTypes],
+        ytype: list[TreeTypes],
+        tree_to_scores: Fn[Tree, list[Score]],
+        detailed: bool,
 ):
     for roots, source in input_data(detailed):
         if detailed:
@@ -252,10 +287,10 @@ for every tree in source:
 
 
 def histogram_pairs_parent_child(
-    parenttype: list[TreeTypes],
-    childtype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
-    detailed: bool,
+        parenttype: list[TreeTypes],
+        childtype: list[TreeTypes],
+        tree_to_scores: Fn[Tree, list[Score]],
+        detailed: bool,
 ):
     for roots, source in input_data(detailed):
         if detailed:
@@ -273,9 +308,10 @@ for every tree in source:
       if node.type in {parenttype} and child_node in {childtype}:
         x.append({agg_name}(tree_to_scores(node)) - {agg_name}(tree_to_scores(child_node)))"""
             for _score_name, getter, ax in _ax6(title, bool(pairs)):
-
                 def stat(t: Tree) -> float:
-                    return _tree_to_float(t, tree_to_scores, getter, agg_fn)
+                    return score_transformer(
+                        _tree_to_float(t, tree_to_scores, getter, agg_fn),
+                        _score_name)
 
                 ax.xaxis.set_tick_params(labelsize="x-small")
                 # ax.xaxis.set_major_formatter(FormatStrFormatter("%0.0f"))
@@ -287,11 +323,42 @@ for every tree in source:
                 )
 
 
+def get_siblings_data(
+        node_details: list[tuple[list[TreeTypes], list[TreeTypes],
+                                 Fn[Tree, list[Score]]]],
+        detailed: bool) -> dict[str, list[tuple[str, list[list[float]]]]]:
+    result: dict[str, list[tuple[str, list[list[float]]]]] = {}
+    for i, (roots, _) in enumerate(
+            input_data(False)):  # set detailed to False, always one loop
+        assert i <= 1
+        # print(_score_getters)
+        for score_name, score_getter in _score_getters:
+            one_picture_data = []
+            for agg_name, _, agg_fn in agg_list:
+                single_panel_data = []
+                for xtype, ytype, tree_to_scores in node_details:
+                    single_type_pairs: list[float] = []
+                    pairs = _pairs_siblings(roots, xtype, ytype)
+
+                    def stat(t: Tree) -> float:
+                        return score_transformer(
+                            _tree_to_float(t, tree_to_scores, score_getter,
+                                           agg_fn),
+                            score_name)
+
+                    for x, y in pairs:
+                        single_type_pairs.append(stat(x) - stat(y))
+                    single_panel_data.append(single_type_pairs)
+                one_picture_data.append((agg_name, single_panel_data))
+            result[score_name] = one_picture_data
+    return result
+
+
 def boxplot_scores(
-    ltype: list[TreeTypes],
-    rtype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
-    detailed: bool,
+        ltype: list[TreeTypes],
+        rtype: list[TreeTypes],
+        tree_to_scores: Fn[Tree, list[Score]],
+        detailed: bool,
 ):
     for roots, source in input_data(detailed):
         if detailed:
@@ -337,12 +404,12 @@ for every tree in source:
 
 
 def histogram_top_bottom(
-    ttype: list[TreeTypes],
-    btype: list[TreeTypes],
-    tree_to_scores: Fn[Tree, list[Score]],
-    agg_tuple: AggTuple,
-    score_getter: Tuple[str, ScoreGetter],
-    detailed: bool,
+        ttype: list[TreeTypes],
+        btype: list[TreeTypes],
+        tree_to_scores: Fn[Tree, list[Score]],
+        agg_tuple: AggTuple,
+        score_getter: Tuple[str, ScoreGetter],
+        detailed: bool,
 ):
     for roots, _source in input_data(detailed):
         agg_name, agg_color, agg_fn = agg_tuple
@@ -388,7 +455,8 @@ for every tree in source:
         fpr, tpr, _thresholds = metrics.roc_curve(y, pred)
         roc_auc = metrics.auc(fpr, tpr)
         display = metrics.RocCurveDisplay(
-            fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name=f"{score_name} {agg_name}"
+            fpr=fpr, tpr=tpr, roc_auc=roc_auc,
+            estimator_name=f"{score_name} {agg_name}"
         )
 
         fig, ax = plt.subplots()
@@ -397,3 +465,43 @@ for every tree in source:
         fig.set_figheight(7)
         display.plot(ax)
         plt.show()
+
+
+def get_roc_data(
+        ttypes: list[list[TreeTypes]],
+        btypes: list[list[TreeTypes]],
+        tree_to_scores: Fn[Tree, list[Score]],
+        agg_fns: list[AggFn],
+        score_getters: list[Tuple[str, ScoreGetter]],
+        detailed: bool = False
+):
+    roots, _source = next(input_data(detailed))
+    all_nodes = list(flatten((root.all_nodes() for root in roots)))
+
+    tables: list[list[list[Union[Union[str, float], Any]]]] = []
+    for ttype, btype in zip(ttypes, btypes):
+        table = []
+        for score_name, getter in score_getters:
+            for agg_function in agg_fns:
+                # print(agg_function) # Nonesence but it still claim that it is
+                # a tuple (name, color, function)
+
+                def stat(t: Tree) -> float:
+                    return score_transformer(
+                        _tree_to_float(t, tree_to_scores, getter, agg_function[2]),
+                        score_name)
+
+                y = [1 for tree in all_nodes if tree.type in ttype] + [
+                    0 for tree in all_nodes if tree.type in btype
+                ]
+                pred = [stat(tree) for tree in all_nodes if
+                        tree.type in ttype] + [
+                           stat(tree) for tree in all_nodes if
+                           tree.type in btype
+                       ]
+                fpr, tpr, _thresholds = metrics.roc_curve(y, pred)
+                roc_auc = metrics.auc(fpr, tpr)
+                row = [score_name, agg_function[0], roc_auc]
+                table.append(row)
+        tables.append(table)
+    return tables
