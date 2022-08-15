@@ -1,3 +1,9 @@
 {
   "python.pythonPath": "/home/mkitlas/miniconda3/envs/py3.10/bin/python",
+  "git.ignoredRepositories": [
+    "/home/mkitlas/mgr/askcos-core",
+    "/home/mkitlas/mgr/askcos-data",
+    "/home/mkitlas/mgr/scorers/mf_score",
+    "/home/mkitlas/mgr/scorers/scscore"
+  ]
 }
