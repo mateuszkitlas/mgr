@@ -51,6 +51,6 @@ async def app_ac():
 
 
 @asynccontextmanager
-async def app_ai():
-    async with CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env") as x:
+async def app_ai(offset: float=0):
+    async with CondaApp[AiInput, Timed[AiTree]](4001 + offset, "ai", "aizynth-env") as x:
         yield x

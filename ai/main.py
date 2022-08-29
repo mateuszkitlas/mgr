@@ -10,9 +10,9 @@ from shared import CondaApp, Timer, project_dir, serve
 
 class Setup(TypedDict):
     agg: Literal["max", "min"]
-    score: Literal["sa", "sc", "mf"]
+    score: Literal["sa", "sc", "ra", "syba", "mf"]
     uw_multiplier: float
-    normalize: Tuple[float, float, bool]
+    # normalize: Literal["sa", "sc", "ra", "syba", "mf"]
 
 
 class Input(TypedDict):
@@ -115,13 +115,42 @@ class AiZynth:
         return AiZynth().tree(smiles)
 
 
-def normalize(first: float, second: float, inverted: bool, score: float):
-    left, right = (None, 1.0) if inverted else (1.0, None)
-    return left if score <= first else (0.0 if score <= second else right)
+def score_transformer(score_value: float, score_type: str) -> float:
+    """Transform score so that fall within [0,1].
+
+    0 means infeasible (not-accessible) molecule, 1 means fully feasible
+    molecule.
+    """
+    if score_type == "sa":
+        # Transform [1, 10] to [0,1] and invert
+        result = 1 - (score_value - 1) / 9
+    elif score_type == "sc":
+        # Transform [1, 5] to [0,1] and invert
+        result = 1 - ((score_value - 1) / 4)
+    elif score_type == "ra":
+        result = score_value
+    elif score_type == "syba":
+        # For now suppose it is within [-100, 100]
+        result = (min(max(score_value, -100), 100) / 200) + 0.5
+    elif score_type == "mf":
+        # Transform [-800, 600] so that 0 turns into 0.5 (no inversion)
+        truncated = min(max(score_value, -800), 600)
+        if truncated > 0:
+            truncated /= 2 * 600
+        else:
+            truncated /= 2 * 800
+        result = truncated + 0.5
+    else:
+        result = score_value
+    assert 0 <= result <= 1
+    return result
 
 
-async def main():
-    conda_app = CondaApp[Tuple[str, List[str]], List[float]](4002, "scorers", "scorers")
+def normalize(score_value: float, score_type: str):
+    return score_transformer(score_value, score_type)
+
+async def main(port=4002):
+    conda_app = CondaApp[Tuple[str, List[str]], List[float]](port, "scorers", "scorers")
 
     async with conda_app as (_, fetch_sync):
         cache: Dict[Tuple[str, str], float] = {}
@@ -151,10 +180,11 @@ async def main():
 
                 if uw_mul > 0.0 and expandable:
                     agg = {"min": min, "max": max}[setup["agg"]]
-                    first, second, inverted = setup["normalize"]
+                    score_type = setup["score"]
                     scores = fetch(setup["score"], expandable)
-                    normalized = normalize(first, second, inverted, agg(scores))
+                    normalized = normalize(agg(scores), score_type)
                     return 0 if normalized is None else f(normalized)
+                    # Probably now normalized is never None
                 else:
                     return f(0.0)
             else:

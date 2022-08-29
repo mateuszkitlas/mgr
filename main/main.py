@@ -2,15 +2,17 @@ import json
 from asyncio import gather, run
 from sys import argv
 from typing import Callable, Coroutine
+from multiprocessing import Process, current_process
 
 from shared import Db
 
-from .ai import ai_input_gen
+from .ai import ai_input_gen, ai_mol_gen, ai_setup_gen
 from .data import data
 from .graph import Graph
 from .helpers import Scoring, all_scorings, app_ac, app_ai, app_scorers
 from .tree import Tree
-from .types import AiTree, Timed
+from .types import AiTree, Timed, AiInput
+
 
 methods: dict[str, Callable[[], Coroutine[None, None, None]]] = {}
 
@@ -21,14 +23,49 @@ def use(fn: Callable[[], Coroutine[None, None, None]]):
 
 
 @use
-async def ai():
+async def ai(dummy=None):
     async with app_ai() as (fetch, _):
         for db, ai_input, _mol in ai_input_gen(False, False):
             await db.maybe_create(["ai", ai_input], lambda: fetch(ai_input))
 
+@use
+async def ai_single_mol(mol_index):
+    print("Mol index", mol_index)
+    mol = list(ai_mol_gen())[mol_index][1]
+    async with app_ai(offset=mol_index) as (fetch, _):
+        for db, setup in ai_setup_gen(False, False):
+            ai_input: AiInput = {"smiles": mol.smiles, "setup": setup}
+            await db.maybe_create(["ai", ai_input], lambda: fetch(ai_input))
+
+
+"""
+@use
+async def async_target(mol, proc_id):
+    async with app_ai(offset=proc_id) as (fetch, _):
+        for db, setup in ai_setup_gen(False, False):
+            ai_input: AiInput = {"smiles": mol.smiles, "setup": setup}
+            await db.maybe_create(["ai", ai_input], lambda: fetch(ai_input))
+
+
+
+def ai_target(mol):
+    proc_id = current_process()._identity[0]
+    print("Proc id", proc_id)
+    run(async_target(mol, proc_id))
 
 @use
-async def ai_postprocess():
+async def ai_parallel():
+    procs = []
+    for mol_no, mol in ai_mol_gen():
+        proc = Process(target=ai_target, args=(mol,))
+        proc.start()
+        procs.append(proc)
+    for proc in procs:
+        proc.join()
+"""
+
+@use
+async def ai_postprocess(dummy=0):
     async with app_scorers() as (_, smileser):
         for db, ai_input, _mol in ai_input_gen(False, False):
             timed_ai_tree = db.read(["ai", ai_input], Timed[AiTree])
@@ -112,7 +149,7 @@ async def ra_scores():
 if __name__ == "__main__":
     method = methods.get(argv[1])
     if method:
-        run(method())
+        run(method(int(argv[2])))
     else:
         print(methods.keys())
 

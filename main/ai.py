@@ -3,7 +3,8 @@ from shared import Db
 
 from .types import AiInput, Setup
 
-other_score_multipliers = [0.15, 0.4, 0.6]  # 0.95/4 * 1, *2, *3,
+other_score_multipliers = [0.2375, 0.475, 0.7125]  # 0.95/4 * 1, *2, *3,
+aggs = ["min", "max"]
 
 
 def n(first: float, second: float):
@@ -13,7 +14,6 @@ def n(first: float, second: float):
 zero_setup: Setup = {
     "score": "sc",
     "uw_multiplier": 0.0,
-    "normalize": n(2.5, 4.5),
     "agg": "max",
 }
 
@@ -23,30 +23,28 @@ ai_setups: list[Setup] = [
         {
             "score": "sc",
             "uw_multiplier": mul,
-            "normalize": normalize,
-            "agg": "max",
+            "agg": agg,
         }
         for mul in other_score_multipliers
-        for normalize in [n(2.5, 4.5), n(3.0, 4.5), n(3.5, 4.5)]
+        for agg in aggs
     ],
     *[
         {
             "score": "sa",
             "uw_multiplier": mul,
-            "normalize": normalize,
-            "agg": "max",
+            "agg": agg,
         }
         for mul in other_score_multipliers
-        for normalize in [n(3.0, 6.0), n(4.0, 6.0), n(5.0, 6.0)]
+        for agg in aggs
     ],
     *[
         {
-            "score": "mf",
+            "score": "syba",
             "uw_multiplier": mul,
-            "normalize": (-700.0, 0.0, True),
-            "agg": "min",
+            "agg": agg,
         }
         for mul in other_score_multipliers
+        for agg in aggs
     ],
 ]
 
@@ -66,3 +64,20 @@ def ai_input_gen(readonly: bool, only_zero_setup: bool):
                     )
                     ai_input: AiInput = {"smiles": mol.smiles, "setup": setup}
                     yield db, ai_input, mol
+
+def ai_mol_gen():
+    mols = data()
+    for mol_no, mol in enumerate(mols):
+        yield mol_no, mol
+
+def ai_setup_gen(readonly: bool, only_zero_setup: bool):
+    with Db("db", readonly) as db:
+        if only_zero_setup:
+            ai_input: AiInput = {"smiles": mol.smiles, "setup": zero_setup}
+            yield db, zero_setup
+        else:
+            for setup_no, setup in enumerate(ai_setups):
+                print(
+                    f"[ai][setup {setup_no}/{len(ai_setups)}]"
+                )
+                yield db, setup
