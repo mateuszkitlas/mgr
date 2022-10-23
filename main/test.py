@@ -6,9 +6,10 @@ from unittest import IsolatedAsyncioTestCase, main
 from shared import paracetamol_smiles
 
 from .ai import zero_setup
-from .helpers import Scoring, app_ai, app_scorers
+from .helpers import app_ai, app_scorers
 from .score import Score, Smiles
 from .tree import Tree
+from .types import Scoring
 
 
 class Test(IsolatedAsyncioTestCase):

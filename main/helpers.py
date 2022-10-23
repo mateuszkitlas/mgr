@@ -1,20 +1,19 @@
 import asyncio
 from contextlib import asynccontextmanager
-from typing import List, Literal, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from main.score import Score, Smiles
 from shared import CondaApp
 
-from .types import AiInput, AiTree, Timed
+from .score import Score, Smiles
+from .types import AiInput, AiTree, Scoring, Timed
 
-Scoring = Literal["sa", "sc", "ra", "syba", "mf"]
 all_scorings: list[Scoring] = ["sa", "sc", "ra", "syba", "mf"]
 
 
 @asynccontextmanager
 async def app_scorers():
     async with CondaApp[Tuple[str, List[str]], List[float]](
-        4002, "scorers", "scorers"
+        8002, "scorers", "scorers"
     ) as (fetch, _):
 
         async def f(scoring: Scoring, smiles: str):
@@ -32,5 +31,5 @@ async def app_scorers():
 
 @asynccontextmanager
 async def app_ai():
-    async with CondaApp[AiInput, Timed[AiTree]](4001, "ai", "aizynth-env") as x:
+    async with CondaApp[AiInput, Timed[AiTree]](8001, "ai", "aizynth-env") as x:
         yield x
