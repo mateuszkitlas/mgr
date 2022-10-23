@@ -44,9 +44,6 @@ class Test(IsolatedAsyncioTestCase):
                 self.fail("".join(failed))
 
     async def test_mf(self):
-        if disable_mf():
-            self.skipTest("DISABLE_MF")
-
         def test_fn(diff: Score):
             return diff.mf > 0.0001
 
@@ -64,7 +61,6 @@ class Test(IsolatedAsyncioTestCase):
         await self._test_scorers([aspirin, cholesterol], test_fn)
 
     async def test_scorers(self):
-        _disable_syba = disable_syba()
         with read_csv(f"test.csv", newline="\r\n", delimiter="\t") as reader:
             # header: SMILES  SAscore SCScore SYBA    RAscore
             mols = [
@@ -87,7 +83,7 @@ class Test(IsolatedAsyncioTestCase):
                 diff.sa > 0.0001
                 or diff.sc > 0.0001
                 or diff.ra > 0.0001
-                or (False if _disable_syba else diff.syba > 0.0001)
+                or diff.syba > 0.0001
             )
 
         await self._test_scorers(mols, test_fn)

@@ -1,7 +1,6 @@
 import csv
 from contextlib import contextmanager
-from typing import (NamedTuple, Optional,
-                    TypeVar)
+from typing import NamedTuple, Optional, TypeVar
 
 from shared import project_dir
 
