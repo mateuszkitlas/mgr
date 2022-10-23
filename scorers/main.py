@@ -13,13 +13,19 @@ MolScorer = Fn[Mol, float]
 
 to_mol: Fn[str, Mol] = Chem.MolFromSmiles
 to_smiles: Fn[Mol, str] = Chem.MolToSmiles
-inverted: Fn[Fn[float, float], Fn[float, float]] = lambda f: lambda value: 1.0 - f(
-    value
-)
+
+
+def inverted(f: Fn[float, float]) -> Fn[float, float]:
+    return lambda value: 1.0 - f(value)
 
 
 def wrap_to_mol(f: Fn[Mol, T]) -> Fn[str, T]:
     return lambda smiles: f(to_mol(smiles))
+
+
+def truncate(value: float, lowest: float, highest: float):
+    # [-inf, inf] -> [lowest, highest]
+    return min(max(value, lowest), highest)
 
 
 def scaler(lowest: float, highest: float) -> Fn[float, float]:
@@ -28,15 +34,21 @@ def scaler(lowest: float, highest: float) -> Fn[float, float]:
     0 means infeasible (not-accessible) molecule
     1 means fully feasible molecule
     """
-    size = highest - lowest
-    return lambda value: (min(max(value, lowest), highest) - lowest) / size
+    # [-inf, inf] -> [lowest, highest] -> [0, highest - lowest] -> [0, 1]
+    l, h = float(min(lowest, highest)), float(max(lowest, highest))
+    size = h - l
+    return lambda value: (truncate(value, l, h) - l) / size
 
 
 def get_mf_scorer() -> SmilesScorer:
     from .mf_score.mfscore.ocsvm import score_smiles
 
-    scale = scaler(-800, 600)
-    return lambda smiles: scale(score_smiles(smiles))
+    def f(smiles: str):
+        # [-inf, inf] -> [-800, 600] -> [-1, 1] -> [-0.5, 0.5] -> [0, 1]
+        value = truncate(score_smiles(smiles), -800.0, 600.0)
+        return (value / 2.0 / (800.0 if value < 0.0 else 600.0)) + 0.5
+
+    return f
 
 
 def get_sc_scorer() -> MolScorer:
@@ -70,8 +82,7 @@ def get_ra_scorer(
     model = (RAscore_NN.RAScorerNN if dnn else RAscore_XGB.RAScorerXGB)(
         f"{project_dir}/data/ra_models/{model}_{db}_{x}_counts/model.{y}"
     )
-    scale = scaler(0, 1)
-    return lambda smiles: scale(model.predict(smiles).item())
+    return lambda smiles: truncate(model.predict(smiles).item(), 0.0, 1.0)
 
 
 def get_sa_scorer() -> MolScorer:
@@ -80,8 +91,8 @@ def get_sa_scorer() -> MolScorer:
     sys.path.append(os.path.join(RDConfig.RDContribDir, "SA_Score"))
     import sascorer
 
-    scale = inverted(scaler(1, 10))
-    return lambda mol: scale(sascorer.calculateScore(mol))
+    f = inverted(scaler(1, 10))
+    return lambda mol: f(sascorer.calculateScore(mol))
 
 
 if __name__ == "__main__":
