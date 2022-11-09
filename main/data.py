@@ -11,7 +11,7 @@ from shared import project_dir
 T = TypeVar("T")
 
 
-class Mol(NamedTuple):
+class _Mol(NamedTuple):
     smiles: str
     name: str
     desc: str
@@ -23,10 +23,18 @@ class Mol(NamedTuple):
         return f"{self.smiles}, {self.name}, {self.desc}, {self.additional}, {self.synthesis}, {self.char}"
 
 
+class Mol(_Mol):
+
+    @property
+    def synthesable(self) -> bool:
+        # Checking if synthesis paper is not empty
+        return bool(self.synthesis)
+
+
 @contextmanager
 def read_csv(filename: str, newline: Optional[str], delimiter: Optional[str]):
     with open(
-        f"{project_dir}/main/{filename}", encoding="utf-8", newline=newline
+            f"{project_dir}/main/{filename}", encoding="utf-8", newline=newline
     ) as csvfile:
         csvreader = csv.reader(csvfile, delimiter=delimiter or ",")
         next(csvreader, None)  # header
