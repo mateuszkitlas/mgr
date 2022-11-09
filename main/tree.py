@@ -241,6 +241,12 @@ class Tree:
         def node_count(t: Tree) -> int:
             return 1 + sum(node_count(c) for c in t.children)
 
+        def leaf_not_solved_count(t: AiTree) -> int:
+            if t.children:
+                return sum(leaf_not_solved_count(c) for c in t.children)
+            else:
+                return t.type == "not_solved"
+
         return {
             "internal": node_stats(internal),
             "solved": node_stats(solved),
@@ -253,5 +259,6 @@ class Tree:
             "max_depth": max_depth(self, 0),
             "max_width": max_width(self),
             "node_count": node_count(self),
-            "not_solved_count": len([n for n in not_solved if n.not_solved_depth == 0]),
+            # "not_solved_count": len([n for n in not_solved if n.not_solved_depth == 0]),
+            "not_solved_count": leaf_not_solved_count(self),
         }
