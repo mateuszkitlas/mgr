@@ -239,7 +239,7 @@ class Db:
         from sqlitedict import SqliteDict
 
         self.db = SqliteDict(
-            f"{project_dir}/results/{name}_modified.sqlite",
+            f"{project_dir}/results/{name}.sqlite",
             outer_stack=False,
             autocommit=True,
             flag="r" if readonly else "c",
