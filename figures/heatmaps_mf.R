@@ -138,7 +138,7 @@ a = ggplot(data, aes(x=X0, y=X1, fill=X2)) +
                                        "mf min" = "OC-MF-Score minimum",
                                        "mf avg" = "OC-MF-Score mean"
                    ),
-                   width=10)
+                   width=15)
   ) +
   theme(axis.title.x=element_blank(),
         axis.title.y=element_blank(),
@@ -190,7 +190,7 @@ b = ggplot(data, aes(x=X0, y=X1, fill=X2)) +
                                        "mf min" = "OC-MF-Score minimum",
                                        "mf avg" = "OC-MF-Score mean"
                                        ),
-                                     width=10)
+                                     width=15)
   ) +
   theme(axis.title.x=element_blank(),
         axis.title.y=element_blank(),
@@ -205,7 +205,7 @@ library(cowplot)
 plot_grid(a, b, labels=c("A", "B"), rel_widths = c(7,6))
 
 ggsave("figures/heatmaps_siblings_parental.pdf",
-       width = 10, height = 4)
+       width = 11, height = 4)
 
 
 t# # Heatmap of AUC
@@ -245,3 +245,4 @@ ggplot(aes(x=X0, y=X1, fill=X2, group=X3)) +
 
 ggsave("figures/heatmap_aucs.pdf",
        width = 6, height = 3)
+
